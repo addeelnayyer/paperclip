@@ -29,6 +29,7 @@ import {
   type PaperclipConfig,
 } from "../config/schema.js";
 import { ensureAgentJwtSecret, ensureToolActionSigningSecret, resolveAgentJwtEnvFile } from "../config/env.js";
+import { applyDataDirOverride } from "../config/data-dir.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
 import { promptDatabase } from "../prompts/database.js";
 import { promptLlm } from "../prompts/llm.js";
@@ -41,7 +42,6 @@ import {
   describeLocalInstancePaths,
   expandHomePrefix,
   resolveDefaultBackupDir,
-  resolveDefaultConfigPath,
   resolveDefaultEmbeddedPostgresDir,
   resolveDefaultLogsDir,
   resolvePaperclipInstanceId,
@@ -156,8 +156,8 @@ function parseNumberFromEnv(rawValue: string | undefined): number | null {
 function parsePortOption(flag: string, rawValue: string | undefined): number | undefined {
   if (rawValue === undefined) return undefined;
   const trimmed = rawValue.trim();
-  const port = Number(trimmed);
-  if (!/^\d+$/.test(trimmed) || port < 1 || port > 65535) {
+  const port = /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+  if (!(port >= 1 && port <= 65535)) {
     throw new Error(`Invalid ${flag}: ${rawValue}. Use an integer between 1 and 65535.`);
   }
   return port;
@@ -400,14 +400,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   }
   const serverPort = parsePortOption("--server-port", opts.serverPort);
   const dbPort = parsePortOption("--db-port", opts.dbPort);
-  if (opts.instance) {
-    const instanceId = resolvePaperclipInstanceId(opts.instance);
-    process.env.PAPERCLIP_INSTANCE_ID = instanceId;
-    // An explicit instance targets its own config, not one found above the cwd.
-    if (!opts.config && !process.env.PAPERCLIP_CONFIG?.trim()) {
-      process.env.PAPERCLIP_CONFIG = resolveDefaultConfigPath(instanceId);
-    }
-  }
+  applyDataDirOverride({ instance: opts.instance, config: opts.config }, { hasConfigOption: true });
 
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclipai onboard ")));

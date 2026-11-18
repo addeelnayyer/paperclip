@@ -15,6 +15,7 @@ const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_CWD = process.cwd();
 const ORIGINAL_PATH = process.env.PATH;
 const ORIGINAL_EXIT_CODE = process.exitCode;
+const PINNED_PORTS = { serverPort: "9901", dbPort: "55901" };
 
 function createExistingConfigFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-"));
@@ -288,7 +289,7 @@ describe("onboard", () => {
   it("pins the server and embedded-Postgres ports given on the command line", async () => {
     const configPath = createFreshConfigPath();
 
-    await onboard({ config: configPath, yes: true, invokedByRun: true, serverPort: "9901", dbPort: "55901" });
+    await onboard({ config: configPath, yes: true, invokedByRun: true, ...PINNED_PORTS });
 
     const raw = JSON.parse(fs.readFileSync(configPath, "utf8")) as PaperclipConfig;
     expect(raw.server.port).toBe(9901);
@@ -330,7 +331,7 @@ describe("onboard", () => {
     process.chdir(cwd);
     process.env.PAPERCLIP_HOME = home;
 
-    await onboard({ instance: "work", yes: true, invokedByRun: true, serverPort: "9901", dbPort: "55901" });
+    await onboard({ instance: "work", yes: true, invokedByRun: true, ...PINNED_PORTS });
 
     const instanceRoot = path.join(home, "instances", "work");
     const raw = JSON.parse(fs.readFileSync(path.join(instanceRoot, "config.json"), "utf8")) as PaperclipConfig;
@@ -346,7 +347,7 @@ describe("onboard", () => {
     process.chdir(path.dirname(path.dirname(fixture.configPath)));
     process.env.PAPERCLIP_HOME = home;
 
-    await onboard({ instance: "work", yes: true, invokedByRun: true, serverPort: "9901", dbPort: "55901" });
+    await onboard({ instance: "work", yes: true, invokedByRun: true, ...PINNED_PORTS });
 
     const raw = JSON.parse(fs.readFileSync(path.join(home, "instances", "work", "config.json"), "utf8")) as PaperclipConfig;
     expect(raw.server.port).toBe(9901);
@@ -357,7 +358,7 @@ describe("onboard", () => {
   it("leaves an existing config's ports unchanged when port options are given", async () => {
     const fixture = createExistingConfigFixture();
 
-    await onboard({ config: fixture.configPath, invokedByRun: true, serverPort: "9901", dbPort: "55901" });
+    await onboard({ config: fixture.configPath, invokedByRun: true, ...PINNED_PORTS });
 
     expect(fs.readFileSync(fixture.configPath, "utf8")).toBe(fixture.configText);
   });
