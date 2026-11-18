@@ -15,6 +15,7 @@ const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_CWD = process.cwd();
 const ORIGINAL_PATH = process.env.PATH;
 const ORIGINAL_EXIT_CODE = process.exitCode;
+const PINNED_PORTS = { serverPort: "9901", dbPort: "55901" };
 
 function createExistingConfigFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-"));
@@ -283,6 +284,83 @@ describe("onboard", () => {
     expect(raw.server.exposure).toBe("private");
     expect(raw.server.bind).toBe("tailnet");
     expect(raw.server.host).toBe("127.0.0.1");
+  });
+
+  it("pins the server and embedded-Postgres ports given on the command line", async () => {
+    const configPath = createFreshConfigPath();
+
+    await onboard({ config: configPath, yes: true, invokedByRun: true, ...PINNED_PORTS });
+
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf8")) as PaperclipConfig;
+    expect(raw.server.port).toBe(9901);
+    expect(raw.database.embeddedPostgresPort).toBe(55901);
+  });
+
+  it.each([
+    { serverPort: "abc" },
+    { serverPort: "0" },
+    { serverPort: "65536" },
+    { serverPort: "9901.5" },
+    { dbPort: "" },
+    { dbPort: "-1" },
+    { dbPort: "70000" },
+  ])("refuses invalid port option %o without writing config", async (ports) => {
+    const configPath = createFreshConfigPath();
+
+    await expect(onboard({ config: configPath, yes: true, invokedByRun: true, ...ports })).rejects.toThrow(
+      /Invalid --(server|db)-port/,
+    );
+
+    expect(fs.existsSync(configPath)).toBe(false);
+  });
+
+  it("keeps the default ports when no port options are given", async () => {
+    const configPath = createFreshConfigPath();
+    delete process.env.PORT;
+
+    await onboard({ config: configPath, yes: true, invokedByRun: true });
+
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf8")) as PaperclipConfig;
+    expect(raw.server.port).toBe(3100);
+    expect(raw.database.embeddedPostgresPort).toBe(54329);
+  });
+
+  it("writes pinned ports into the config of the Instance named by --instance", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-home-"));
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-cwd-"));
+    process.chdir(cwd);
+    process.env.PAPERCLIP_HOME = home;
+
+    await onboard({ instance: "work", yes: true, invokedByRun: true, ...PINNED_PORTS });
+
+    const instanceRoot = path.join(home, "instances", "work");
+    const raw = JSON.parse(fs.readFileSync(path.join(instanceRoot, "config.json"), "utf8")) as PaperclipConfig;
+    expect(raw.server.port).toBe(9901);
+    expect(raw.database.embeddedPostgresPort).toBe(55901);
+    expect(raw.database.embeddedPostgresDataDir).toBe(path.join(instanceRoot, "db"));
+    expect(fs.existsSync(path.join(home, "instances", "default"))).toBe(false);
+  });
+
+  it("targets the --instance config even when run inside a directory with its own config", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-home-"));
+    const fixture = createExistingConfigFixture();
+    process.chdir(path.dirname(path.dirname(fixture.configPath)));
+    process.env.PAPERCLIP_HOME = home;
+
+    await onboard({ instance: "work", yes: true, invokedByRun: true, ...PINNED_PORTS });
+
+    const raw = JSON.parse(fs.readFileSync(path.join(home, "instances", "work", "config.json"), "utf8")) as PaperclipConfig;
+    expect(raw.server.port).toBe(9901);
+    expect(raw.database.embeddedPostgresPort).toBe(55901);
+    expect(fs.readFileSync(fixture.configPath, "utf8")).toBe(fixture.configText);
+  });
+
+  it("leaves an existing config's ports unchanged when port options are given", async () => {
+    const fixture = createExistingConfigFixture();
+
+    await onboard({ config: fixture.configPath, invokedByRun: true, ...PINNED_PORTS });
+
+    expect(fs.readFileSync(fixture.configPath, "utf8")).toBe(fixture.configText);
   });
 
   it("ignores deployment env overrides during --yes quickstart", async () => {
