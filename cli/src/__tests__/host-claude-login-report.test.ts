@@ -132,4 +132,18 @@ describe("service status Host Claude Login", () => {
 
     expect(status.hostClaudeLogin).toBe("default ~/.claude");
   });
+
+  it("reads the Instance's .env even when run inside a directory with its own config", async () => {
+    const home = useTempHome();
+    writeInstanceEnv(home, "work", "CLAUDE_CONFIG_DIR=/Users/me/.claude-work\n");
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-claude-login-repo-"));
+    fs.mkdirSync(path.join(repo, ".paperclip"));
+    fs.writeFileSync(path.join(repo, ".paperclip", "config.json"), "{}\n");
+    fs.writeFileSync(path.join(repo, ".paperclip", ".env"), "CLAUDE_CONFIG_DIR=/Users/me/.claude-repo\n");
+    vi.spyOn(process, "cwd").mockReturnValue(repo);
+
+    const status = await serviceStatus("--instance", "work");
+
+    expect(status.hostClaudeLogin).toBe("/Users/me/.claude-work");
+  });
 });

@@ -167,12 +167,6 @@ export function writeInstanceClaudeConfigDir(value: string | null, filePath = re
   writeEnvFileAtomicallyIfChanged(filePath, previousContents, nextContents);
 }
 
-/**
- * Describes which Claude config dir this Instance's agents will use: the
- * Instance's Host Claude Login, else the inherited CLAUDE_CONFIG_DIR, else
- * ~/.claude. The Instance's value wins at server startup, so an inherited
- * value that differs is reported as overridden.
- */
 export function describeHostClaudeLogin(filePath = resolveEnvFilePath(), env: NodeJS.ProcessEnv = process.env): string {
   const instanceValue = readInstanceClaudeConfigDir(filePath);
   const inherited = isNonEmpty(env[CLAUDE_CONFIG_DIR_ENV_KEY]) ? env[CLAUDE_CONFIG_DIR_ENV_KEY].trim() : null;
