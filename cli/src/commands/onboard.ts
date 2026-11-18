@@ -41,6 +41,7 @@ import {
   describeLocalInstancePaths,
   expandHomePrefix,
   resolveDefaultBackupDir,
+  resolveDefaultConfigPath,
   resolveDefaultEmbeddedPostgresDir,
   resolveDefaultLogsDir,
   resolvePaperclipInstanceId,
@@ -400,7 +401,12 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const serverPort = parsePortOption("--server-port", opts.serverPort);
   const dbPort = parsePortOption("--db-port", opts.dbPort);
   if (opts.instance) {
-    process.env.PAPERCLIP_INSTANCE_ID = resolvePaperclipInstanceId(opts.instance);
+    const instanceId = resolvePaperclipInstanceId(opts.instance);
+    process.env.PAPERCLIP_INSTANCE_ID = instanceId;
+    // An explicit instance targets its own config, not one found above the cwd.
+    if (!opts.config && !process.env.PAPERCLIP_CONFIG?.trim()) {
+      process.env.PAPERCLIP_CONFIG = resolveDefaultConfigPath(instanceId);
+    }
   }
 
   printPaperclipCliBanner();

@@ -340,6 +340,20 @@ describe("onboard", () => {
     expect(fs.existsSync(path.join(home, "instances", "default"))).toBe(false);
   });
 
+  it("targets the --instance config even when run inside a directory with its own config", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-home-"));
+    const fixture = createExistingConfigFixture();
+    process.chdir(path.dirname(path.dirname(fixture.configPath)));
+    process.env.PAPERCLIP_HOME = home;
+
+    await onboard({ instance: "work", yes: true, invokedByRun: true, serverPort: "9901", dbPort: "55901" });
+
+    const raw = JSON.parse(fs.readFileSync(path.join(home, "instances", "work", "config.json"), "utf8")) as PaperclipConfig;
+    expect(raw.server.port).toBe(9901);
+    expect(raw.database.embeddedPostgresPort).toBe(55901);
+    expect(fs.readFileSync(fixture.configPath, "utf8")).toBe(fixture.configText);
+  });
+
   it("leaves an existing config's ports unchanged when port options are given", async () => {
     const fixture = createExistingConfigFixture();
 
