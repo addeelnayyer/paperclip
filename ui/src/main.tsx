@@ -13,6 +13,7 @@ import { CompanyProvider, useCompany } from "./context/CompanyContext";
 import { LinkPreviewProvider } from "./context/LinkPreviewContext";
 import { LiveUpdatesProvider } from "./context/LiveUpdatesProvider";
 import { BreadcrumbProvider } from "./context/BreadcrumbContext";
+import { useInstanceId } from "./hooks/useInstanceId";
 import { PanelProvider } from "./context/PanelContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import { DialogProvider } from "./context/DialogContext";
@@ -106,7 +107,8 @@ window.addEventListener("load", () => {
 
 function CompanyAwareBreadcrumbProvider({ children }: { children: React.ReactNode }) {
   const { selectedCompany } = useCompany();
-  return <BreadcrumbProvider companyName={selectedCompany?.name ?? null}>{children}</BreadcrumbProvider>;
+  const instanceId = useInstanceId();
+  return <BreadcrumbProvider companyName={selectedCompany?.name ?? null} instanceId={instanceId}>{children}</BreadcrumbProvider>;
 }
 
 function CompanyVoiceCalls({ children }: { children: React.ReactNode }) {

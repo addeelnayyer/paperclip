@@ -66,6 +66,7 @@ describe("GET /health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockReadPersistedDevServerStatus.mockReturnValue(undefined);
+    vi.stubEnv("PAPERCLIP_INSTANCE_ID", "default");
   });
 
   afterEach(() => {
@@ -76,8 +77,26 @@ describe("GET /health", () => {
     const app = createApp();
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "ok", version: serverVersion, serverVersion: serverVersion, commit: testServerInfo.git.fullSha, serverInfo: testServerInfo });
+    expect(res.body).toEqual({ status: "ok", version: serverVersion, serverVersion: serverVersion, commit: testServerInfo.git.fullSha, instanceId: "default", serverInfo: testServerInfo });
   }, 15_000);
+
+  it("names the Instance that answered on full health details", async () => {
+    vi.stubEnv("PAPERCLIP_INSTANCE_ID", "personal");
+
+    const withoutDb = await request(createApp()).get("/health");
+    const withDb = await request(createApp(createHealthyDb())).get("/health");
+
+    expect(withoutDb.body.instanceId).toBe("personal");
+    expect(withDb.body.instanceId).toBe("personal");
+  });
+
+  it("names the default Instance when no Instance id is configured", async () => {
+    vi.stubEnv("PAPERCLIP_INSTANCE_ID", "");
+
+    const res = await request(createApp(createHealthyDb())).get("/health");
+
+    expect(res.body.instanceId).toBe("default");
+  });
 
   it("keeps the self-hosted health response byte-identical and omits cloud", async () => {
     const app = createApp(undefined, testServerInfo, undefined, {});
@@ -89,6 +108,7 @@ describe("GET /health", () => {
       version: serverVersion,
       serverVersion,
       commit: testServerInfo.git.fullSha,
+      instanceId: "default",
       serverInfo: testServerInfo,
     };
     expect(res.text).toBe(JSON.stringify(baseline));

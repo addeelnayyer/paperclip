@@ -1,3 +1,6 @@
+/** Id of the Paperclip Instance used when none is configured. */
+export const DEFAULT_PAPERCLIP_INSTANCE_ID = "default";
+
 export const COMPANY_STATUSES = ["active", "paused", "archived"] as const;
 /**
  * IDs per `/issues/summaries` request. Large enough that a typical recent-task
