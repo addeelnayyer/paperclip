@@ -28,7 +28,12 @@ import {
   findPaperclipConfigKeyWarnings,
   type PaperclipConfig,
 } from "../config/schema.js";
-import { ensureAgentJwtSecret, ensureToolActionSigningSecret, resolveAgentJwtEnvFile } from "../config/env.js";
+import {
+  describeHostClaudeLogin,
+  ensureAgentJwtSecret,
+  ensureToolActionSigningSecret,
+  resolveAgentJwtEnvFile,
+} from "../config/env.js";
 import { applyDataDirOverride } from "../config/data-dir.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
 import { promptDatabase } from "../prompts/database.js";
@@ -408,7 +413,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
   p.log.message(
     pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`,
+      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(configPath)}`,
     ),
   );
 

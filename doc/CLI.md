@@ -355,6 +355,12 @@ line when it does. Every other `.env` key keeps the inherited value. An agent's
 own `adapterConfig.env.CLAUDE_CONFIG_DIR` still wins, and agents on an AI
 Connection are unaffected.
 
+`onboard` and `run` print the Host Claude Login in place: the Instance's value
+(noting when it overrides an inherited `CLAUDE_CONFIG_DIR`), else the inherited
+value, else `default ~/.claude`. `paperclipai service status --instance <id>`
+reports it as `hostClaudeLogin`, read from the Instance's `.env` alone, since the
+service does not inherit your shell's environment.
+
 ## Deployment Modes
 
 Mode taxonomy and design intent are documented in `doc/DEPLOYMENT-MODES.md`.

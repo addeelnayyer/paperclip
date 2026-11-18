@@ -3,12 +3,14 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import { readConfig, resolveConfigPath } from "../config/store.js";
-import { resolvePaperclipInstanceId, resolvePaperclipInstanceRoot } from "../config/home.js";
+import { describeHostClaudeLogin } from "../config/env.js";
+import { resolveDefaultConfigPath, resolvePaperclipInstanceId, resolvePaperclipInstanceRoot } from "../config/home.js";
 import { detectServiceManager, type ServiceManager, type ServiceStatus } from "../services/service-manager.js";
 import { ensureServiceShim } from "../onboard-service.js";
 import { buildLocalHealthUrl } from "../utils/health-url.js";
 
 type CommonOptions = { instance?: string; json?: boolean };
+const SERVICE_INHERITED_ENV: NodeJS.ProcessEnv = {};
 type HealthResult = { ok: boolean; serverVersion: string | null; error?: string };
 
 function output(value: unknown, json: boolean | undefined): void {
@@ -219,7 +221,8 @@ export function registerServiceCommands(program: Command): void {
   common(service.command("status").description("Show supervisor and health status")).action(async (opts) => {
     const manager = await resolveManager(opts); if (!manager) return;
     const instanceId = resolvePaperclipInstanceId(opts.instance);
-    output({ ...await manager.status(), health: await probeHealth(instanceId) }, opts.json);
+    const hostClaudeLogin = describeHostClaudeLogin(resolveDefaultConfigPath(instanceId), SERVICE_INHERITED_ENV);
+    output({ ...await manager.status(), health: await probeHealth(instanceId), hostClaudeLogin }, opts.json);
   });
 
   common(service.command("logs").description("Show service logs"))
