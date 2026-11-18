@@ -34,6 +34,7 @@ import {
   WORKSPACE_READINESS_USER_EMAIL_HEADER,
   WORKSPACE_READINESS_USER_ID_HEADER,
 } from "../auth/workspace-login-handoff.js";
+import { resolvePaperclipInstanceId } from "../home-paths.js";
 import { serverVersion } from "../version.js";
 import { getStartupRecoveryState } from "../startup-recovery-state.js";
 import { nativeRestartRecoverySummary } from "../services/native-runtime/native-restart-recovery.js";
@@ -257,6 +258,10 @@ export function healthRoutes(
     // one, unlike the fuller `serverInfo` block. Deploy tooling (and anyone)
     // can read which commit this server is running without authenticating.
     const commit = serverInfo.git.available ? serverInfo.git.fullSha : null;
+    // The Instance id tells the board which of several local Instances it is
+    // talking to. It names the instance, so like serverInfo it rides the
+    // full-details responses only.
+    const instanceId = resolvePaperclipInstanceId();
     const exposeDevServerDetails =
       exposeFullDetails || hasDevServerStatusToken(req.get("x-paperclip-dev-server-status-token"));
     // Workspace readiness names the instance and execution workspace that
@@ -279,6 +284,7 @@ export function healthRoutes(
               version: serverVersion,
               serverVersion: serverVersion,
               commit,
+              instanceId,
               serverInfo,
               ...(cloud ? { cloud } : {}),
               ...(hiddenSettings.length ? { hiddenSettings } : {}),
@@ -432,6 +438,7 @@ export function healthRoutes(
       version: serverVersion,
       serverVersion,
       commit,
+      instanceId,
       deploymentMode: opts.deploymentMode,
       deploymentExposure: opts.deploymentExposure,
         localAiLoginSupported: supportsLocalAiLogin(opts),

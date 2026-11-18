@@ -51,6 +51,7 @@ import { cn } from "../lib/utils";
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { SidebarCompanyMenu } from "./SidebarCompanyMenu";
+import { SidebarInstanceLabel } from "./SidebarInstanceLabel";
 import { primarySidebarStyles } from "./primary-sidebar-styles";
 
 export function Sidebar({ children }: { children?: ReactNode }) {
@@ -176,6 +177,7 @@ function ClassicSidebar({ children }: { children?: ReactNode }) {
           Search is the first nav item below instead. */}
       <div className="flex h-(--sz-60px) shrink-0 items-center gap-1 px-3">
         <SidebarCompanyMenu />
+        <SidebarInstanceLabel />
       </div>
 
       <nav className={primarySidebarStyles.nav}>

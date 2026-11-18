@@ -119,4 +119,28 @@ describe("BreadcrumbContext", () => {
     expect(buildDocumentTitle([{ label: "Inbox" }], "  ")).toBe("Inbox • Paperclip");
     expect(buildDocumentTitle([], null)).toBe("Paperclip");
   });
+
+  it("leads page titles with the Instance id for a non-default Instance", () => {
+    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", "personal")).toBe(
+      "[personal] Inbox • Anachronist Wiki • Paperclip",
+    );
+    expect(buildDocumentTitle([], null, "personal")).toBe("[personal] Paperclip");
+  });
+
+  it("adds no Instance label for the default Instance", () => {
+    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", "default")).toBe(
+      "Inbox • Anachronist Wiki • Paperclip",
+    );
+    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", null)).toBe(
+      "Inbox • Anachronist Wiki • Paperclip",
+    );
+  });
+
+  it("puts the Instance id in the browser tab title", () => {
+    act(() => {
+      root.render(<BreadcrumbProvider companyName="Anachronist Wiki" instanceId="personal">{null}</BreadcrumbProvider>);
+    });
+
+    expect(document.title).toBe("[personal] Anachronist Wiki • Paperclip");
+  });
 });
