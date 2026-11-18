@@ -34,6 +34,7 @@ import {
   WORKSPACE_READINESS_USER_EMAIL_HEADER,
   WORKSPACE_READINESS_USER_ID_HEADER,
 } from "../auth/workspace-login-handoff.js";
+import { resolvePaperclipInstanceId } from "../home-paths.js";
 import { serverVersion } from "../version.js";
 import { getStartupRecoveryState } from "../startup-recovery-state.js";
 import { nativeRestartRecoverySummary } from "../services/native-runtime/native-restart-recovery.js";
@@ -136,6 +137,10 @@ export function healthRoutes(
   },
 ) {
   const router = Router();
+  // The Instance id tells the board which of several local Instances it is
+  // talking to. It names the instance, so like serverInfo it rides the
+  // full-details responses only.
+  const instanceId = resolvePaperclipInstanceId();
 
   router.post("/dev-server/restart", async (req, res) => {
     const actorType = "actor" in req ? req.actor?.type : null;
@@ -279,6 +284,7 @@ export function healthRoutes(
               version: serverVersion,
               serverVersion: serverVersion,
               commit,
+              instanceId,
               serverInfo,
               ...(cloud ? { cloud } : {}),
               ...(hiddenSettings.length ? { hiddenSettings } : {}),
@@ -432,6 +438,7 @@ export function healthRoutes(
       version: serverVersion,
       serverVersion,
       commit,
+      instanceId,
       deploymentMode: opts.deploymentMode,
       deploymentExposure: opts.deploymentExposure,
         localAiLoginSupported: supportsLocalAiLogin(opts),

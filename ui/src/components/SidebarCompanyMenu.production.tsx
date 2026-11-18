@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { ANALYTICS_MASK_CLASS } from "@/lib/analytics/privacy";
 import { useSidebar } from "../context/SidebarContext";
 import { CompanyPatternIcon } from "./CompanyPatternIcon";
+import { SidebarInstanceLabel } from "./SidebarInstanceLabel";
 
 import { PluginOrganizationSwitcher } from "./PluginOrganizationSwitcher";
 
@@ -285,6 +286,7 @@ function BuiltinCompanyMenu({ open: controlledOpen, onOpenChange }: SidebarCompa
               {currentName ?? `Select ${switcherNoun}`}
             </span>
           </span>
+          <SidebarInstanceLabel />
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>

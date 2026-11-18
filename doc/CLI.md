@@ -380,11 +380,52 @@ port 5590N. The `default` Instance keeps 3100/54329 and runs alongside them.
    service and `paperclipai run --instance <id>` use the same one.
 
 The Instance's Host Claude Login beats a `CLAUDE_CONFIG_DIR` inherited from the
-shell or service environment. An agent's own `CLAUDE_CONFIG_DIR` in its adapter
-env still wins.
+shell or service environment. Switching an Instance to a different login
+applies at the next restart, and Claude sessions saved under the old login
+start fresh. See [Host Claude Login](#host-claude-login) for the full rules.
 
-Switching an Instance to a different login applies at the next restart.
-Claude sessions saved under the old login start fresh.
+## Host Claude Login
+
+An Instance can have its own Host Claude Login: the Claude config dir that its
+`claude_local` agents with no AI Connection run under, along with their Test
+environment probe.
+
+```sh
+npx paperclipai configure --instance <id> --claude-config-dir <path>
+npx paperclipai configure --instance <id> --claude-config-dir ""
+npx paperclipai onboard --instance <id> --claude-config-dir <path>
+npx paperclipai service install --instance <id> --claude-config-dir <path>
+```
+
+`onboard` and `service install` validate, confirm and save the value exactly as
+`configure` does, before they write any config or install the service. If the
+value is refused or the change is declined, they stop. `service install` does
+not put `CLAUDE_CONFIG_DIR` in the launchd plist or systemd unit: the service
+runs `paperclipai run --instance <id>`, which reads it from the Instance's
+`.env`, so a service-managed Instance and one started by hand use the same
+Host Claude Login.
+
+- The CLI expands `~` and saves the absolute path as `CLAUDE_CONFIG_DIR` in the
+  Instance's `.env`. A path that does not exist is refused and nothing is
+  written. The CLI does not check whether the directory is signed in.
+- `--claude-config-dir ""` removes the entry. The Instance then falls back to
+  the inherited `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+- Changing or removing an existing value asks for confirmation. `--yes` skips
+  the prompt. A non-interactive run without `--yes` stops and changes nothing.
+- The change applies at the next restart. Claude sessions saved under the old
+  login start fresh.
+
+At server startup, `CLAUDE_CONFIG_DIR` in the Instance's `.env` replaces an
+inherited value from the shell or launchd environment, and the server logs one
+line when it does. Every other `.env` key keeps the inherited value. An agent's
+own `adapterConfig.env.CLAUDE_CONFIG_DIR` still wins, and agents on an AI
+Connection are unaffected.
+
+`onboard` and `run` print the Host Claude Login in place: the Instance's value
+(noting when it overrides an inherited `CLAUDE_CONFIG_DIR`), else the inherited
+value, else `default ~/.claude`. `paperclipai service status --instance <id>`
+reports it as `hostClaudeLogin`, read from the Instance's `.env` alone, since the
+service does not inherit your shell's environment.
 
 ## Deployment Modes
 

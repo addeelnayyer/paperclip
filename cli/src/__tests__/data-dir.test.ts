@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -48,6 +49,18 @@ describe("applyDataDirOverride", () => {
     expect(process.env.PAPERCLIP_CONFIG).toBe(
       path.resolve("/tmp/paperclip-alt", "instances", "dev_1", "config.json"),
     );
+  });
+
+  it("pins an explicit instance's default config path without a data dir", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-data-dir-home-"));
+    process.env.PAPERCLIP_HOME = home;
+
+    const dataDir = applyDataDirOverride({ instance: "work" }, { hasConfigOption: true });
+
+    expect(dataDir).toBeNull();
+    expect(process.env.PAPERCLIP_HOME).toBe(home);
+    expect(process.env.PAPERCLIP_INSTANCE_ID).toBe("work");
+    expect(process.env.PAPERCLIP_CONFIG).toBe(path.join(home, "instances", "work", "config.json"));
   });
 
   it("does not override explicit config/context settings", () => {

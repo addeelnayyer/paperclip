@@ -3,12 +3,15 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import { readConfig, resolveConfigPath } from "../config/store.js";
-import { resolvePaperclipInstanceId, resolvePaperclipInstanceRoot } from "../config/home.js";
+import { describeHostClaudeLogin, resolvePaperclipEnvFile } from "../config/env.js";
+import { resolveDefaultConfigPath, resolvePaperclipInstanceId, resolvePaperclipInstanceRoot } from "../config/home.js";
+import { applyHostClaudeLoginOption } from "../prompts/host-claude-login.js";
 import { detectServiceManager, type ServiceManager, type ServiceStatus } from "../services/service-manager.js";
 import { ensureServiceShim } from "../onboard-service.js";
 import { buildLocalHealthUrl } from "../utils/health-url.js";
 
 type CommonOptions = { instance?: string; json?: boolean };
+const SERVICE_INHERITED_ENV: NodeJS.ProcessEnv = {};
 type HealthResult = { ok: boolean; serverVersion: string | null; error?: string };
 
 function output(value: unknown, json: boolean | undefined): void {
@@ -171,8 +174,17 @@ export function registerServiceCommands(program: Command): void {
     .option("--no-start-now", "Install without starting now")
     .option("--no-start-on-login", "Install without enabling start on login")
     .option("--enable-linger", "Allow systemd startup without an active login session", false)
+    .option(
+      "--claude-config-dir <path>",
+      "Set the Instance's Host Claude Login (CLAUDE_CONFIG_DIR) in its .env before installing; \"\" removes it",
+    )
+    .option("-y, --yes", "Change an existing Host Claude Login without prompting", false)
     .action(async (opts) => {
       const manager = await resolveManager(opts); if (!manager) return;
+      if (opts.claudeConfigDir !== undefined) {
+        const envFilePath = resolvePaperclipEnvFile(resolveDefaultConfigPath(resolvePaperclipInstanceId(opts.instance)));
+        if (!(await applyHostClaudeLoginOption(opts.claudeConfigDir, envFilePath, opts.yes))) return;
+      }
       const shim = await ensureServiceShim({ installIfMissing: !opts.json });
       if (!shim.ok) {
         throw new Error(
@@ -219,7 +231,8 @@ export function registerServiceCommands(program: Command): void {
   common(service.command("status").description("Show supervisor and health status")).action(async (opts) => {
     const manager = await resolveManager(opts); if (!manager) return;
     const instanceId = resolvePaperclipInstanceId(opts.instance);
-    output({ ...await manager.status(), health: await probeHealth(instanceId) }, opts.json);
+    const hostClaudeLogin = describeHostClaudeLogin(resolveDefaultConfigPath(instanceId), SERVICE_INHERITED_ENV);
+    output({ ...await manager.status(), health: await probeHealth(instanceId), hostClaudeLogin }, opts.json);
   });
 
   common(service.command("logs").description("Show service logs"))

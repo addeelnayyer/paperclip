@@ -203,6 +203,22 @@ describe("SidebarCompanyMenu", () => {
   // act on a failed company list. Saying "No companies" there states something
   // about the account that a failed request cannot support, and leaves the tab
   // with no way back short of a browser reload.
+  it.each([false, true])("names a non-default Instance in the trigger (production: %s)", (production) => {
+    const { root } = renderMenu({ production, health: { status: "ok", instanceId: "personal" } });
+
+    expect(container.querySelector("button")?.textContent).toContain("[personal]");
+
+    act(() => root.unmount());
+  });
+
+  it.each([false, true])("shows no Instance label for the default Instance (production: %s)", (production) => {
+    const { root } = renderMenu({ production, health: { status: "ok", instanceId: "default" } });
+
+    expect(container.querySelector("button")?.textContent).not.toContain("[");
+
+    act(() => root.unmount());
+  });
+
   it("offers a way back when the company list could not be loaded", async () => {
     mockCompanyState.companies = [];
     mockCompanyState.companyListUnavailable = true;

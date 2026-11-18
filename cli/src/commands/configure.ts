@@ -12,6 +12,8 @@ import {
   type PaperclipConfig,
 } from "../config/schema.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
+import { resolvePaperclipEnvFile } from "../config/env.js";
+import { applyHostClaudeLoginOption } from "../prompts/host-claude-login.js";
 import { promptDatabase } from "../prompts/database.js";
 import { promptLlm } from "../prompts/llm.js";
 import { promptLogging } from "../prompts/logging.js";
@@ -81,10 +83,14 @@ function defaultConfig(): PaperclipConfig {
   };
 }
 
-export async function configure(opts: {
+type ConfigureOptions = {
   config?: string;
   section?: string;
-}): Promise<void> {
+  claudeConfigDir?: string;
+  yes?: boolean;
+};
+
+export async function configure(opts: ConfigureOptions): Promise<void> {
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclip configure ")));
   const configPath = resolveConfigPath(opts.config);
@@ -93,6 +99,13 @@ export async function configure(opts: {
     p.log.error("No config file found. Run `paperclipai onboard` first.");
     p.outro("");
     process.exitCode = 1;
+    return;
+  }
+
+  if (opts.claudeConfigDir !== undefined) {
+    if (await applyHostClaudeLoginOption(opts.claudeConfigDir, resolvePaperclipEnvFile(configPath), Boolean(opts.yes))) {
+      p.outro("");
+    }
     return;
   }
 

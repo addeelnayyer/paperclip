@@ -23,21 +23,29 @@ export function applyDataDirOverride(
   support: DataDirCommandSupport = {},
 ): string | null {
   const rawDataDir = options.dataDir?.trim();
-  if (!rawDataDir) return null;
+  const explicitInstance = Boolean(options.instance?.trim());
+  if (!rawDataDir && !explicitInstance) return null;
 
-  const resolvedDataDir = path.resolve(expandHomePrefix(rawDataDir));
-  process.env.PAPERCLIP_HOME = resolvedDataDir;
+  const resolvedDataDir = rawDataDir ? path.resolve(expandHomePrefix(rawDataDir)) : null;
+  if (resolvedDataDir) {
+    process.env.PAPERCLIP_HOME = resolvedDataDir;
+  }
 
+  const instanceId = resolvePaperclipInstanceId(options.instance);
+  if (explicitInstance) {
+    process.env.PAPERCLIP_INSTANCE_ID = instanceId;
+  }
+
+  // An explicit data dir or instance selects that instance's own config, not one found above the cwd.
   if (support.hasConfigOption) {
     const hasConfigOverride = Boolean(options.config?.trim()) || Boolean(process.env.PAPERCLIP_CONFIG?.trim());
     if (!hasConfigOverride) {
-      const instanceId = resolvePaperclipInstanceId(options.instance);
       process.env.PAPERCLIP_INSTANCE_ID = instanceId;
       process.env.PAPERCLIP_CONFIG = resolveDefaultConfigPath(instanceId);
     }
   }
 
-  if (support.hasContextOption) {
+  if (resolvedDataDir && support.hasContextOption) {
     const hasContextOverride = Boolean(options.context?.trim()) || Boolean(process.env.PAPERCLIP_CONTEXT?.trim());
     if (!hasContextOverride) {
       process.env.PAPERCLIP_CONTEXT = resolveDefaultContextPath();

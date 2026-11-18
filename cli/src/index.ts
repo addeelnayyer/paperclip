@@ -133,8 +133,19 @@ program
   .description("Interactive first-run setup wizard")
   .option("-c, --config <path>", "Path to config file")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-i, --instance <id>", "Local instance id (default: default)")
   .option("--bind <mode>", "Quickstart reachability preset (loopback, lan, tailnet)")
-  .option("-y, --yes", "Accept quickstart defaults (trusted local loopback unless --bind is set) and start immediately", false)
+  .option("--server-port <port>", "Server port to save in the new instance's config")
+  .option("--db-port <port>", "Embedded Postgres port to save in the new instance's config")
+  .option(
+    "--claude-config-dir <path>",
+    "Set the Instance's Host Claude Login (CLAUDE_CONFIG_DIR) for claude_local agents with no AI Connection; \"\" removes it",
+  )
+  .option(
+    "-y, --yes",
+    "Accept quickstart defaults (trusted local loopback unless --bind is set), change an existing Host Claude Login without prompting, and start immediately",
+    false,
+  )
   .option("--install-service", "Install and start the background service after onboarding")
   .option("--no-install-service", "Do not install or suggest the background service")
   .option("--run", "Start Paperclip immediately after saving config", false)
@@ -172,7 +183,13 @@ program
   .description("Update configuration sections")
   .option("-c, --config <path>", "Path to config file")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-i, --instance <id>", "Local instance id (default: default)")
   .option("-s, --section <section>", "Section to configure (llm, database, logging, server, storage, secrets)")
+  .option(
+    "--claude-config-dir <path>",
+    "Set the Instance's Host Claude Login (CLAUDE_CONFIG_DIR) for claude_local agents with no AI Connection; \"\" removes it",
+  )
+  .option("-y, --yes", "Change an existing Host Claude Login without prompting")
   .action(configure);
 
 program

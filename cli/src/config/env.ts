@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { config as loadDotenv, parse as parseEnvFileContents } from "dotenv";
-import { updateEnvFileContents, writeEnvFileAtomicallyIfChanged } from "@paperclipai/shared/env-file";
+import { removeEnvFileKeys, updateEnvFileContents, writeEnvFileAtomicallyIfChanged } from "@paperclipai/shared/env-file";
 import { resolveConfigPath } from "./store.js";
 
 const JWT_SECRET_ENV_KEY = "PAPERCLIP_AGENT_JWT_SECRET";
@@ -142,4 +142,40 @@ export function mergePaperclipEnvEntries(
   };
   writePaperclipEnvEntries(managedEntries, filePath);
   return next;
+}
+
+const CLAUDE_CONFIG_DIR_ENV_KEY = "CLAUDE_CONFIG_DIR";
+
+export function readInstanceClaudeConfigDir(filePath = resolveEnvFilePath()): string | null {
+  const value = readPaperclipEnvEntries(filePath)[CLAUDE_CONFIG_DIR_ENV_KEY];
+  return isNonEmpty(value) ? value.trim() : null;
+}
+
+/** Sets the Instance's Host Claude Login, or removes it when `value` is null. */
+export function writeInstanceClaudeConfigDir(value: string | null, filePath = resolveEnvFilePath()): void {
+  const previousContents = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
+  if (value === null) {
+    if (previousContents === null) return;
+    writeEnvFileAtomicallyIfChanged(filePath, previousContents, removeEnvFileKeys(previousContents, [CLAUDE_CONFIG_DIR_ENV_KEY]));
+    return;
+  }
+  const nextContents = updateEnvFileContents(
+    previousContents ?? emptyEnvFileContents(),
+    { [CLAUDE_CONFIG_DIR_ENV_KEY]: value },
+    { valueEncoding: "minimal" },
+  );
+  writeEnvFileAtomicallyIfChanged(filePath, previousContents, nextContents);
+}
+
+export function describeHostClaudeLogin(configPath?: string, env: NodeJS.ProcessEnv = process.env): string {
+  const instanceValue = readInstanceClaudeConfigDir(resolveEnvFilePath(configPath));
+  const rawInherited = env[CLAUDE_CONFIG_DIR_ENV_KEY];
+  const inherited = isNonEmpty(rawInherited) ? rawInherited.trim() : null;
+  if (!instanceValue) {
+    return inherited ? `inherited ${CLAUDE_CONFIG_DIR_ENV_KEY}=${inherited}` : "default ~/.claude";
+  }
+  if (inherited && inherited !== instanceValue) {
+    return `${instanceValue} (overrides inherited ${CLAUDE_CONFIG_DIR_ENV_KEY}=${inherited})`;
+  }
+  return instanceValue;
 }

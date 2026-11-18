@@ -1,7 +1,8 @@
 import os from "node:os";
 import path from "node:path";
+import { DEFAULT_PAPERCLIP_INSTANCE_ID } from "./constants.js";
 
-export const DEFAULT_PAPERCLIP_INSTANCE_ID = "default";
+export { DEFAULT_PAPERCLIP_INSTANCE_ID };
 export const PAPERCLIP_CONFIG_BASENAME = "config.json";
 export const PAPERCLIP_ENV_FILENAME = ".env";
 

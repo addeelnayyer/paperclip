@@ -28,7 +28,14 @@ import {
   findPaperclipConfigKeyWarnings,
   type PaperclipConfig,
 } from "../config/schema.js";
-import { ensureAgentJwtSecret, ensureToolActionSigningSecret, resolveAgentJwtEnvFile } from "../config/env.js";
+import {
+  describeHostClaudeLogin,
+  ensureAgentJwtSecret,
+  ensureToolActionSigningSecret,
+  resolveAgentJwtEnvFile,
+  resolvePaperclipEnvFile,
+} from "../config/env.js";
+import { applyDataDirOverride } from "../config/data-dir.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
 import { promptDatabase } from "../prompts/database.js";
 import { promptLlm } from "../prompts/llm.js";
@@ -36,6 +43,7 @@ import { promptLogging } from "../prompts/logging.js";
 import { defaultSecretsConfig } from "../prompts/secrets.js";
 import { defaultStorageConfig, promptStorage } from "../prompts/storage.js";
 import { promptServer } from "../prompts/server.js";
+import { applyHostClaudeLoginOption } from "../prompts/host-claude-login.js";
 import { buildPresetServerConfig } from "../config/server-bind.js";
 import {
   describeLocalInstancePaths,
@@ -68,6 +76,10 @@ type OnboardOptions = {
   invokedByRun?: boolean;
   bind?: BindMode;
   installService?: boolean;
+  instance?: string;
+  serverPort?: string;
+  dbPort?: string;
+  claudeConfigDir?: string;
 };
 
 type OnboardDefaults = Pick<PaperclipConfig, "database" | "logging" | "server" | "auth" | "storage" | "secrets">;
@@ -147,6 +159,16 @@ function parseNumberFromEnv(rawValue: string | undefined): number | null {
   const parsed = Number(rawValue);
   if (!Number.isFinite(parsed)) return null;
   return parsed;
+}
+
+function parsePortOption(flag: string, rawValue: string | undefined): number | undefined {
+  if (rawValue === undefined) return undefined;
+  const trimmed = rawValue.trim();
+  const port = /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+  if (!(port >= 1 && port <= 65535)) {
+    throw new Error(`Invalid ${flag}: ${rawValue}. Use an integer between 1 and 65535.`);
+  }
+  return port;
 }
 
 function parseEnumFromEnv<T extends string>(rawValue: string | undefined, allowedValues: readonly T[]): T | null {
@@ -384,6 +406,9 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   if (opts.bind && !["loopback", "lan", "tailnet"].includes(opts.bind)) {
     throw new Error(`Unsupported bind preset for onboard: ${opts.bind}. Use loopback, lan, or tailnet.`);
   }
+  const serverPort = parsePortOption("--server-port", opts.serverPort);
+  const dbPort = parsePortOption("--db-port", opts.dbPort);
+  applyDataDirOverride({ instance: opts.instance, config: opts.config }, { hasConfigOption: true });
 
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclipai onboard ")));
@@ -391,9 +416,16 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
   p.log.message(
     pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`,
+      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(configPath)}`,
     ),
   );
+
+  if (
+    opts.claudeConfigDir !== undefined &&
+    !(await applyHostClaudeLoginOption(opts.claudeConfigDir, resolvePaperclipEnvFile(configPath), opts.yes === true))
+  ) {
+    return;
+  }
 
   let existingConfig: PaperclipConfig | null = null;
   let invalidBackupPath: string | undefined;
@@ -443,6 +475,11 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       pc.dim("Existing Paperclip install detected; keeping the current configuration unchanged."),
     );
     p.log.message(pc.dim(`Use ${pc.cyan("paperclipai configure")} if you want to change settings.`));
+    if (serverPort !== undefined || dbPort !== undefined) {
+      p.log.warn(
+        `Ignored --server-port/--db-port: the existing config keeps server port ${existingConfig.server.port} and embedded Postgres port ${existingConfig.database.embeddedPostgresPort}.`,
+      );
+    }
 
     const jwtSecret = ensureAgentJwtSecret(configPath);
     const envFilePath = resolveAgentJwtEnvFile(configPath);
@@ -564,6 +601,12 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
     storage,
     secrets,
   } = derivedDefaults;
+  if (serverPort !== undefined) {
+    server = { ...server, port: serverPort };
+  }
+  if (dbPort !== undefined) {
+    database = { ...database, embeddedPostgresPort: dbPort };
+  }
 
   if (opts.bind === "loopback" || opts.bind === "lan" || opts.bind === "tailnet") {
     const preset = buildPresetServerConfig(opts.bind, {
