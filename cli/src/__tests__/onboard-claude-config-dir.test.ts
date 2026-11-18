@@ -3,50 +3,22 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as prompts from "@clack/prompts";
-import { parse as parseEnv } from "dotenv";
 import { onboard } from "../commands/onboard.js";
+import { loggedText, readEnvEntries, restoreTty, setTty } from "./helpers/host-claude-login.js";
 
-vi.mock("@clack/prompts", () => ({
-  intro: vi.fn(),
-  outro: vi.fn(),
-  cancel: vi.fn(),
-  note: vi.fn(),
-  confirm: vi.fn(),
-  select: vi.fn(),
-  isCancel: vi.fn(() => false),
-  log: {
-    error: vi.fn(),
-    info: vi.fn(),
-    message: vi.fn(),
-    step: vi.fn(),
-    success: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
+vi.mock("@clack/prompts", async () => (await import("./helpers/host-claude-login.js")).clackPromptsMock());
 vi.mock("../commands/run.js", () => ({ runCommand: vi.fn() }));
 
 const ORIGINAL_EXIT_CODE = process.exitCode;
-let originalStdinIsTTY: boolean | undefined;
-let originalStdoutIsTTY: boolean | undefined;
 let root: string;
 let instanceDir: string;
+let envPath: string;
+let configPath: string;
 
-function setTty(value: boolean) {
-  Object.defineProperty(process.stdin, "isTTY", { configurable: true, value });
-  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value });
-}
-
-function envEntries(): Record<string, string> {
-  const envPath = path.join(instanceDir, ".env");
-  return fs.existsSync(envPath) ? parseEnv(fs.readFileSync(envPath, "utf8")) : {};
-}
-
-function loggedText(): string {
-  return [
-    ...vi.mocked(prompts.log.error).mock.calls,
-    ...vi.mocked(prompts.log.success).mock.calls,
-    ...vi.mocked(prompts.log.warn).mock.calls,
-  ].map((call) => String(call[0])).join("\n");
+function seedLogin(dir: string) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(instanceDir, { recursive: true });
+  fs.writeFileSync(envPath, `CLAUDE_CONFIG_DIR=${dir}\n`);
 }
 
 function onboardWork(claudeConfigDir: string, extra: { yes?: boolean } = {}) {
@@ -55,8 +27,6 @@ function onboardWork(claudeConfigDir: string, extra: { yes?: boolean } = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  originalStdinIsTTY = process.stdin.isTTY;
-  originalStdoutIsTTY = process.stdout.isTTY;
   setTty(true);
   root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-onboard-claude-"));
   vi.stubEnv("HOME", path.join(root, "home"));
@@ -69,11 +39,12 @@ beforeEach(() => {
   fs.mkdirSync(process.env.HOME!, { recursive: true });
   vi.spyOn(process, "cwd").mockReturnValue(root);
   instanceDir = path.join(process.env.PAPERCLIP_HOME!, "instances", "work");
+  envPath = path.join(instanceDir, ".env");
+  configPath = path.join(instanceDir, "config.json");
 });
 
 afterEach(() => {
-  Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: originalStdinIsTTY });
-  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: originalStdoutIsTTY });
+  restoreTty();
   process.exitCode = ORIGINAL_EXIT_CODE;
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -88,70 +59,62 @@ describe("onboard --claude-config-dir", () => {
     await onboardWork("~/.claude-work");
 
     expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
-    expect(fs.existsSync(path.join(instanceDir, "config.json"))).toBe(true);
-    expect(envEntries().CLAUDE_CONFIG_DIR).toBe(loginDir);
-    expect(envEntries().PAPERCLIP_AGENT_JWT_SECRET).toBeTruthy();
-    expect(loggedText()).toContain("next restart");
+    expect(fs.existsSync(configPath)).toBe(true);
+    expect(readEnvEntries(envPath).CLAUDE_CONFIG_DIR).toBe(loginDir);
+    expect(readEnvEntries(envPath).PAPERCLIP_AGENT_JWT_SECRET).toBeTruthy();
+    expect(loggedText(prompts.log)).toContain("next restart");
   });
 
   it("refuses a missing path before writing any config", async () => {
     await onboardWork(path.join(root, "missing"));
 
     expect(process.exitCode).toBe(1);
-    expect(loggedText()).toContain("does not exist");
-    expect(fs.existsSync(path.join(instanceDir, "config.json"))).toBe(false);
-    expect(fs.existsSync(path.join(instanceDir, ".env"))).toBe(false);
+    expect(loggedText(prompts.log)).toContain("does not exist");
+    expect(fs.existsSync(configPath)).toBe(false);
+    expect(fs.existsSync(envPath)).toBe(false);
   });
 
   it("stops without changing anything when a different login is set, non-interactive and --yes is missing", async () => {
     const oldDir = path.join(root, "old-login");
-    fs.mkdirSync(oldDir);
-    fs.mkdirSync(instanceDir, { recursive: true });
-    fs.writeFileSync(path.join(instanceDir, ".env"), `CLAUDE_CONFIG_DIR=${oldDir}\n`);
+    seedLogin(oldDir);
     setTty(false);
 
     await onboardWork(root, { yes: false });
 
     expect(process.exitCode).toBe(1);
     expect(prompts.confirm).not.toHaveBeenCalled();
-    expect(envEntries()).toEqual({ CLAUDE_CONFIG_DIR: oldDir });
-    expect(fs.existsSync(path.join(instanceDir, "config.json"))).toBe(false);
+    expect(readEnvEntries(envPath)).toEqual({ CLAUDE_CONFIG_DIR: oldDir });
+    expect(fs.existsSync(configPath)).toBe(false);
   });
 
   it("asks before changing a different existing login and keeps it when declined", async () => {
     const oldDir = path.join(root, "old-login");
-    fs.mkdirSync(oldDir);
-    fs.mkdirSync(instanceDir, { recursive: true });
-    fs.writeFileSync(path.join(instanceDir, ".env"), `CLAUDE_CONFIG_DIR=${oldDir}\n`);
+    seedLogin(oldDir);
     vi.mocked(prompts.confirm).mockResolvedValueOnce(false);
 
     await onboardWork(root, { yes: false });
 
     expect(prompts.confirm).toHaveBeenCalledTimes(1);
-    expect(envEntries()).toEqual({ CLAUDE_CONFIG_DIR: oldDir });
-    expect(fs.existsSync(path.join(instanceDir, "config.json"))).toBe(false);
+    expect(readEnvEntries(envPath)).toEqual({ CLAUDE_CONFIG_DIR: oldDir });
+    expect(fs.existsSync(configPath)).toBe(false);
   });
 
   it("changes an existing login without asking when --yes is passed", async () => {
-    const oldDir = path.join(root, "old-login");
-    fs.mkdirSync(oldDir);
-    fs.mkdirSync(instanceDir, { recursive: true });
-    fs.writeFileSync(path.join(instanceDir, ".env"), `CLAUDE_CONFIG_DIR=${oldDir}\n`);
+    seedLogin(path.join(root, "old-login"));
     setTty(false);
 
     await onboardWork(root);
 
     expect(prompts.confirm).not.toHaveBeenCalled();
-    expect(envEntries().CLAUDE_CONFIG_DIR).toBe(root);
+    expect(readEnvEntries(envPath).CLAUDE_CONFIG_DIR).toBe(root);
   });
 
   it("removes the login when given an empty path", async () => {
-    fs.mkdirSync(instanceDir, { recursive: true });
-    fs.writeFileSync(path.join(instanceDir, ".env"), `CLAUDE_CONFIG_DIR=${root}\n`);
+    seedLogin(root);
 
     await onboardWork("");
 
-    expect(envEntries().CLAUDE_CONFIG_DIR).toBeUndefined();
-    expect(fs.existsSync(path.join(instanceDir, "config.json"))).toBe(true);
+    expect(readEnvEntries(envPath).CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(fs.existsSync(configPath)).toBe(true);
   });
 });

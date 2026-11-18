@@ -2,7 +2,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
-import { parse as parseEnv } from "dotenv";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerServiceCommands } from "../commands/service.js";
 import { ensureServiceShim } from "../onboard-service.js";
@@ -12,6 +11,7 @@ import {
   renderSystemdUnit,
   type ServiceManager,
 } from "../services/service-manager.js";
+import { readEnvEntries, restoreTty, setTty } from "./helpers/host-claude-login.js";
 
 vi.mock("../onboard-service.js", () => ({ ensureServiceShim: vi.fn() }));
 vi.mock("../services/service-manager.js", async (importOriginal) => ({
@@ -83,9 +83,7 @@ describe("service install command", () => {
     let instanceDir: string;
     let envPath: string;
 
-    function envEntries(): Record<string, string> {
-      return fs.existsSync(envPath) ? parseEnv(fs.readFileSync(envPath, "utf8")) : {};
-    }
+    const envEntries = () => readEnvEntries(envPath);
 
     beforeEach(() => {
       root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-service-claude-"));
@@ -100,18 +98,22 @@ describe("service install command", () => {
     });
 
     afterEach(() => {
+      restoreTty();
       process.exitCode = undefined;
       vi.unstubAllEnvs();
       fs.rmSync(root, { recursive: true, force: true });
     });
 
     it("saves the Host Claude Login in the Instance's .env before installing", async () => {
-      const writeSpy = vi.spyOn(fs, "renameSync");
+      let envAtInstall: Record<string, string> = {};
+      install.mockImplementationOnce(async () => {
+        envAtInstall = envEntries();
+        return { changed: true };
+      });
 
       await runInstall("--instance", "work", "--claude-config-dir", root);
 
-      expect(envEntries()).toEqual({ PAPERCLIP_AGENT_JWT_SECRET: "keep-me", CLAUDE_CONFIG_DIR: root });
-      expect(writeSpy.mock.invocationCallOrder[0]).toBeLessThan(install.mock.invocationCallOrder[0]!);
+      expect(envAtInstall).toEqual({ PAPERCLIP_AGENT_JWT_SECRET: "keep-me", CLAUDE_CONFIG_DIR: root });
       expect(install).toHaveBeenCalledWith({ startNow: true, startOnLogin: true });
     });
 
@@ -123,31 +125,30 @@ describe("service install command", () => {
       expect(install).not.toHaveBeenCalled();
     });
 
-    it("refuses to change a different login non-interactively without --yes, and changes it with --yes", async () => {
+    it("refuses to change a different login non-interactively without --yes", async () => {
       const oldDir = path.join(root, "old-login");
       fs.mkdirSync(oldDir);
       fs.writeFileSync(envPath, `CLAUDE_CONFIG_DIR=${oldDir}\n`);
-      const stdinTty = process.stdin.isTTY;
-      Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: false });
-      try {
-        await runInstall("--instance", "work", "--claude-config-dir", root);
+      setTty(false);
 
-        expect(process.exitCode).toBe(1);
-        expect(envEntries().CLAUDE_CONFIG_DIR).toBe(oldDir);
-        expect(install).not.toHaveBeenCalled();
+      await runInstall("--instance", "work", "--claude-config-dir", root);
 
-        process.exitCode = undefined;
-        await runInstall("--instance", "work", "--claude-config-dir", root, "--yes");
-
-        expect(envEntries().CLAUDE_CONFIG_DIR).toBe(root);
-        expect(install).toHaveBeenCalledTimes(1);
-      } finally {
-        Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: stdinTty });
-      }
+      expect(process.exitCode).toBe(1);
+      expect(envEntries().CLAUDE_CONFIG_DIR).toBe(oldDir);
+      expect(install).not.toHaveBeenCalled();
     });
 
-    it("keeps CLAUDE_CONFIG_DIR out of the launchd plist and systemd unit", async () => {
-      await runInstall("--instance", "work", "--claude-config-dir", root);
+    it("changes a different login non-interactively with --yes", async () => {
+      fs.writeFileSync(envPath, `CLAUDE_CONFIG_DIR=${path.join(root, "old-login")}\n`);
+      setTty(false);
+
+      await runInstall("--instance", "work", "--claude-config-dir", root, "--yes");
+
+      expect(envEntries().CLAUDE_CONFIG_DIR).toBe(root);
+      expect(install).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps CLAUDE_CONFIG_DIR out of the launchd plist and systemd unit", () => {
       const unitInput = { instanceId: "work", shimPath: "/bin/paperclipai", homeDir: process.env.PAPERCLIP_HOME! };
 
       expect(renderLaunchdPlist({ ...unitInput, stdoutPath: "/out.log", stderrPath: "/err.log" })).not.toContain("CLAUDE_CONFIG_DIR");
