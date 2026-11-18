@@ -175,7 +175,13 @@ program
   .description("Update configuration sections")
   .option("-c, --config <path>", "Path to config file")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-i, --instance <id>", "Local instance id (default: default)")
   .option("-s, --section <section>", "Section to configure (llm, database, logging, server, storage, secrets)")
+  .option(
+    "--claude-config-dir <path>",
+    "Set the Instance's Host Claude Login (CLAUDE_CONFIG_DIR) for claude_local agents with no AI Connection; \"\" removes it",
+  )
+  .option("-y, --yes", "Change an existing Host Claude Login without prompting")
   .action(configure);
 
 program

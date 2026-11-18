@@ -10,7 +10,7 @@ import { basename, dirname, resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { resolvePaperclipEnvPath } from "./paths.js";
 import { maybeRepairLegacyWorktreeConfigAndEnvFiles } from "./worktree-config.js";
-import { shouldLoadWorkingDirectoryEnv } from "./env-file-policy.js";
+import { loadInstanceEnvFile, shouldLoadWorkingDirectoryEnv } from "./env-file-policy.js";
 import { applyEmptyWorktreeSigningSecrets } from "./dev-runner-worktree.js";
 import {
   AUTH_BASE_URL_MODES,
@@ -37,7 +37,7 @@ import { loadStorageConfig, type StorageConfig } from "./storage/config.js";
 if (!isCloudManagedInstance()) {
   const PAPERCLIP_ENV_FILE_PATH = resolvePaperclipEnvPath();
   if (existsSync(PAPERCLIP_ENV_FILE_PATH)) {
-    loadDotenv({ path: PAPERCLIP_ENV_FILE_PATH, override: false, quiet: true });
+    loadInstanceEnvFile(PAPERCLIP_ENV_FILE_PATH);
   }
 
   const CWD_ENV_PATH = resolve(process.cwd(), ".env");
