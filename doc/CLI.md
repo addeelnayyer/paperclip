@@ -328,6 +328,33 @@ environments receive foreground `paperclipai run` guidance.
 `paperclipai doctor` includes managed-install and service-health diagnostics in
 addition to configuration, storage, database, logging, and port checks.
 
+## Host Claude Login
+
+An Instance can have its own Host Claude Login: the Claude config dir that its
+`claude_local` agents with no AI Connection run under, along with their Test
+environment probe.
+
+```sh
+npx paperclipai configure --instance <id> --claude-config-dir <path>
+npx paperclipai configure --instance <id> --claude-config-dir ""
+```
+
+- The CLI expands `~` and saves the absolute path as `CLAUDE_CONFIG_DIR` in the
+  Instance's `.env`. A path that does not exist is refused and nothing is
+  written. The CLI does not check whether the directory is signed in.
+- `--claude-config-dir ""` removes the entry. The Instance then falls back to
+  the inherited `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+- Changing or removing an existing value asks for confirmation. `--yes` skips
+  the prompt. A non-interactive run without `--yes` stops and changes nothing.
+- The change applies at the next restart. Claude sessions saved under the old
+  login start fresh.
+
+At server startup, `CLAUDE_CONFIG_DIR` in the Instance's `.env` replaces an
+inherited value from the shell or launchd environment, and the server logs one
+line when it does. Every other `.env` key keeps the inherited value. An agent's
+own `adapterConfig.env.CLAUDE_CONFIG_DIR` still wins, and agents on an AI
+Connection are unaffected.
+
 ## Deployment Modes
 
 Mode taxonomy and design intent are documented in `doc/DEPLOYMENT-MODES.md`.

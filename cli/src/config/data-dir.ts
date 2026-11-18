@@ -46,3 +46,13 @@ export function applyDataDirOverride(
 
   return resolvedDataDir;
 }
+
+/**
+ * Points instance-scoped resolution (config path, Instance `.env`) at an
+ * explicit `--instance`. An explicit `--config` or `PAPERCLIP_CONFIG` still wins.
+ */
+export function applyInstanceOption(options: Pick<DataDirOptionLike, "instance">): void {
+  if (options.instance?.trim()) {
+    process.env.PAPERCLIP_INSTANCE_ID = resolvePaperclipInstanceId(options.instance);
+  }
+}

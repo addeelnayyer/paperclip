@@ -1,4 +1,6 @@
 import * as p from "@clack/prompts";
+import fs from "node:fs";
+import path from "node:path";
 import pc from "picocolors";
 import {
   backupInvalidConfig,
@@ -12,6 +14,11 @@ import {
   type PaperclipConfig,
 } from "../config/schema.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
+import {
+  readInstanceClaudeConfigDir,
+  resolvePaperclipEnvFile,
+  writeInstanceClaudeConfigDir,
+} from "../config/env.js";
 import { promptDatabase } from "../prompts/database.js";
 import { promptLlm } from "../prompts/llm.js";
 import { promptLogging } from "../prompts/logging.js";
@@ -19,11 +26,13 @@ import { defaultSecretsConfig, promptSecrets } from "../prompts/secrets.js";
 import { defaultStorageConfig, promptStorage } from "../prompts/storage.js";
 import { promptServer } from "../prompts/server.js";
 import {
+  expandHomePrefix,
   resolveDefaultBackupDir,
   resolveDefaultEmbeddedPostgresDir,
   resolveDefaultLogsDir,
   resolvePaperclipInstanceId,
 } from "../config/home.js";
+import { applyInstanceOption } from "../config/data-dir.js";
 import { printPaperclipCliBanner } from "../utils/banner.js";
 
 type Section = "llm" | "database" | "logging" | "server" | "storage" | "secrets";
@@ -81,18 +90,86 @@ function defaultConfig(): PaperclipConfig {
   };
 }
 
-export async function configure(opts: {
+type ConfigureOptions = {
   config?: string;
   section?: string;
-}): Promise<void> {
+  instance?: string;
+  claudeConfigDir?: string;
+  yes?: boolean;
+};
+
+async function configureClaudeConfigDir(rawValue: string, envFilePath: string, yes: boolean): Promise<void> {
+  const trimmed = rawValue.trim();
+  const next = trimmed ? path.resolve(expandHomePrefix(trimmed)) : null;
+
+  if (next !== null) {
+    const stat = fs.statSync(next, { throwIfNoEntry: false });
+    if (!stat?.isDirectory()) {
+      p.log.error(
+        stat
+          ? `Claude config dir ${next} is not a directory. Nothing was changed.`
+          : `Claude config dir ${next} does not exist. Create it (or sign in with Claude Code using it) and rerun. Nothing was changed.`,
+      );
+      p.outro("");
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  const current = readInstanceClaudeConfigDir(envFilePath);
+  if (current === next) {
+    p.log.message(
+      pc.dim(next === null ? "No Host Claude Login is set for this Instance. Nothing changed." : `Host Claude Login is already ${next}. Nothing changed.`),
+    );
+    p.outro("");
+    return;
+  }
+
+  if (current !== null && !yes) {
+    const change = next === null ? `remove the Host Claude Login ${current}` : `change the Host Claude Login from ${current} to ${next}`;
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      p.log.error(`Refusing to ${change} without confirmation. Rerun with --yes to confirm. Nothing was changed.`);
+      p.outro("");
+      process.exitCode = 1;
+      return;
+    }
+    const confirmed = await p.confirm({
+      message: `This will ${change}. Continue?`,
+      initialValue: false,
+    });
+    if (p.isCancel(confirmed) || !confirmed) {
+      p.cancel("Host Claude Login left unchanged.");
+      return;
+    }
+  }
+
+  writeInstanceClaudeConfigDir(next, envFilePath);
+  p.log.success(
+    next === null
+      ? `Removed the Host Claude Login from ${pc.dim(envFilePath)}. Agents will use the inherited CLAUDE_CONFIG_DIR, else ~/.claude.`
+      : `Host Claude Login set to ${next} in ${pc.dim(envFilePath)}.`,
+  );
+  p.log.warn(
+    "The change applies at the next restart of this Instance. Claude sessions saved under the old login will start fresh.",
+  );
+  p.outro("");
+}
+
+export async function configure(opts: ConfigureOptions): Promise<void> {
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclip configure ")));
+  applyInstanceOption(opts);
   const configPath = resolveConfigPath(opts.config);
 
   if (!configExists(opts.config)) {
     p.log.error("No config file found. Run `paperclipai onboard` first.");
     p.outro("");
     process.exitCode = 1;
+    return;
+  }
+
+  if (opts.claudeConfigDir !== undefined) {
+    await configureClaudeConfigDir(opts.claudeConfigDir, resolvePaperclipEnvFile(configPath), Boolean(opts.yes));
     return;
   }
 

@@ -28,7 +28,7 @@ import { registerFeedbackCommands } from "./commands/client/feedback.js";
 import { registerSecretCommands } from "./commands/client/secrets.js";
 import { registerSkillsCommands } from "./commands/client/skills.js";
 import { registerTeamCommands } from "./commands/client/teams.js";
-import { applyDataDirOverride, type DataDirOptionLike } from "./config/data-dir.js";
+import { applyDataDirOverride, applyInstanceOption, type DataDirOptionLike } from "./config/data-dir.js";
 import { loadPaperclipEnvFile } from "./config/env.js";
 import { initTelemetryFromConfigFile, flushTelemetry } from "./telemetry.js";
 import { registerWorktreeCommands } from "./commands/worktree.js";
@@ -118,6 +118,7 @@ program.hook("preAction", async (_thisCommand, actionCommand) => {
     hasConfigOption: optionNames.has("config"),
     hasContextOption: optionNames.has("context"),
   });
+  if (optionNames.has("config")) applyInstanceOption(dataDirOptions);
   loadPaperclipEnvFile(options.config);
   if (actionCommand.name() === "test-drive") {
     assertTestDriveDatabaseIsolation(options.config);
@@ -172,7 +173,13 @@ program
   .description("Update configuration sections")
   .option("-c, --config <path>", "Path to config file")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
+  .option("-i, --instance <id>", "Local instance id (default: default)")
   .option("-s, --section <section>", "Section to configure (llm, database, logging, server, storage, secrets)")
+  .option(
+    "--claude-config-dir <path>",
+    "Set the Instance's Host Claude Login (CLAUDE_CONFIG_DIR) for claude_local agents with no AI Connection; \"\" removes it",
+  )
+  .option("-y, --yes", "Change an existing Host Claude Login without prompting")
   .action(configure);
 
 program

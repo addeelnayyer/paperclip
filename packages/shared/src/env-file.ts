@@ -152,6 +152,18 @@ export function updateEnvFileContents(
   return lines.map((line) => `${line.contents}${line.ending}`).join("");
 }
 
+/** Removes every assignment of the named keys and preserves every other byte. */
+export function removeEnvFileKeys(contents: string, keys: readonly string[]): string {
+  const removed = new Set(keys);
+  return splitEnvLines(contents)
+    .filter((line) => {
+      const key = line.contents.match(ENV_ASSIGNMENT_PATTERN)?.[2];
+      return key === undefined || !removed.has(key);
+    })
+    .map((line) => `${line.contents}${line.ending}`)
+    .join("");
+}
+
 /** Writes a changed env file through a same-directory temporary file and rename. */
 export function writeEnvFileAtomicallyIfChanged(
   filePath: string,
