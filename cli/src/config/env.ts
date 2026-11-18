@@ -167,9 +167,10 @@ export function writeInstanceClaudeConfigDir(value: string | null, filePath = re
   writeEnvFileAtomicallyIfChanged(filePath, previousContents, nextContents);
 }
 
-export function describeHostClaudeLogin(filePath = resolveEnvFilePath(), env: NodeJS.ProcessEnv = process.env): string {
-  const instanceValue = readInstanceClaudeConfigDir(filePath);
-  const inherited = isNonEmpty(env[CLAUDE_CONFIG_DIR_ENV_KEY]) ? env[CLAUDE_CONFIG_DIR_ENV_KEY].trim() : null;
+export function describeHostClaudeLogin(configPath?: string, env: NodeJS.ProcessEnv = process.env): string {
+  const instanceValue = readInstanceClaudeConfigDir(resolveEnvFilePath(configPath));
+  const rawInherited = env[CLAUDE_CONFIG_DIR_ENV_KEY];
+  const inherited = isNonEmpty(rawInherited) ? rawInherited.trim() : null;
   if (!instanceValue) {
     return inherited ? `inherited ${CLAUDE_CONFIG_DIR_ENV_KEY}=${inherited}` : "default ~/.claude";
   }

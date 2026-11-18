@@ -33,7 +33,6 @@ import {
   ensureAgentJwtSecret,
   ensureToolActionSigningSecret,
   resolveAgentJwtEnvFile,
-  resolvePaperclipEnvFile,
 } from "../config/env.js";
 import { applyDataDirOverride } from "../config/data-dir.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
@@ -414,7 +413,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
   p.log.message(
     pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(resolvePaperclipEnvFile(configPath))}`,
+      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(configPath)}`,
     ),
   );
 

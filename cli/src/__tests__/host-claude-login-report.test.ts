@@ -33,65 +33,58 @@ function bannerLine(output: string): string {
   return line;
 }
 
+beforeEach(() => {
+  vi.stubEnv("PAPERCLIP_CONFIG", undefined);
+  vi.stubEnv("PAPERCLIP_INSTANCE_ID", undefined);
+  vi.stubEnv("CLAUDE_CONFIG_DIR", undefined);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
 describe("onboard banner Host Claude Login", () => {
-  beforeEach(() => {
-    vi.stubEnv("PAPERCLIP_CONFIG", undefined);
-    vi.stubEnv("PAPERCLIP_INSTANCE_ID", undefined);
-    vi.stubEnv("CLAUDE_CONFIG_DIR", undefined);
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
-  });
-
-  it("shows the Instance's Host Claude Login", async () => {
+  it.each([
+    {
+      name: "shows the Instance's Host Claude Login",
+      instanceValue: "/Users/me/.claude-work",
+      inherited: undefined,
+      expected: "claude login: /Users/me/.claude-work",
+    },
+    {
+      name: "says the default ~/.claude is in use when the Instance sets none",
+      instanceValue: undefined,
+      inherited: undefined,
+      expected: "claude login: default ~/.claude",
+    },
+    {
+      name: "says an inherited CLAUDE_CONFIG_DIR is in use when the Instance sets none",
+      instanceValue: undefined,
+      inherited: "/Users/me/.claude-shell",
+      expected: "claude login: inherited CLAUDE_CONFIG_DIR=/Users/me/.claude-shell",
+    },
+    {
+      name: "says when the Instance's Host Claude Login overrides an inherited one",
+      instanceValue: "/Users/me/.claude-work",
+      inherited: "/Users/me/.claude-shell",
+      expected: "claude login: /Users/me/.claude-work (overrides inherited CLAUDE_CONFIG_DIR=/Users/me/.claude-shell)",
+    },
+  ])("$name", async ({ instanceValue, inherited, expected }) => {
     const home = useTempHome();
-    writeInstanceEnv(home, "work", "CLAUDE_CONFIG_DIR=/Users/me/.claude-work\n");
+    if (instanceValue) writeInstanceEnv(home, "work", `CLAUDE_CONFIG_DIR=${instanceValue}\n`);
+    if (inherited) vi.stubEnv("CLAUDE_CONFIG_DIR", inherited);
     const output = capturedStdout();
 
     await onboard({ instance: "work", yes: true, invokedByRun: true });
 
-    expect(bannerLine(output())).toContain("claude login: /Users/me/.claude-work");
-  });
-
-  it("says the default ~/.claude is in use when the Instance sets none", async () => {
-    useTempHome();
-    const output = capturedStdout();
-
-    await onboard({ instance: "work", yes: true, invokedByRun: true });
-
-    expect(bannerLine(output())).toContain("claude login: default ~/.claude");
-  });
-
-  it("says an inherited CLAUDE_CONFIG_DIR is in use when the Instance sets none", async () => {
-    useTempHome();
-    vi.stubEnv("CLAUDE_CONFIG_DIR", "/Users/me/.claude-shell");
-    const output = capturedStdout();
-
-    await onboard({ instance: "work", yes: true, invokedByRun: true });
-
-    expect(bannerLine(output())).toContain("claude login: inherited CLAUDE_CONFIG_DIR=/Users/me/.claude-shell");
-  });
-
-  it("says when the Instance's Host Claude Login overrides an inherited one", async () => {
-    const home = useTempHome();
-    writeInstanceEnv(home, "work", "CLAUDE_CONFIG_DIR=/Users/me/.claude-work\n");
-    vi.stubEnv("CLAUDE_CONFIG_DIR", "/Users/me/.claude-shell");
-    const output = capturedStdout();
-
-    await onboard({ instance: "work", yes: true, invokedByRun: true });
-
-    expect(bannerLine(output())).toContain(
-      "claude login: /Users/me/.claude-work (overrides inherited CLAUDE_CONFIG_DIR=/Users/me/.claude-shell)",
-    );
+    expect(bannerLine(output())).toContain(expected);
   });
 });
 
 describe("service status Host Claude Login", () => {
   beforeEach(() => {
-    vi.stubEnv("PAPERCLIP_CONFIG", undefined);
-    vi.stubEnv("PAPERCLIP_INSTANCE_ID", undefined);
     vi.stubEnv("CLAUDE_CONFIG_DIR", "/Users/me/.claude-shell");
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     vi.mocked(detectServiceManager).mockResolvedValue({
@@ -100,12 +93,6 @@ describe("service status Host Claude Login", () => {
         status: async () => ({ serviceName: "com.paperclipai.work", installed: true, active: true }),
       } as unknown as ServiceManager,
     });
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
   });
 
   async function serviceStatus(...args: string[]): Promise<Record<string, unknown>> {
