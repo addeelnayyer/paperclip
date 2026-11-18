@@ -29,6 +29,7 @@ import {
   type PaperclipConfig,
 } from "../config/schema.js";
 import {
+  describeHostClaudeLogin,
   ensureAgentJwtSecret,
   ensureToolActionSigningSecret,
   resolveAgentJwtEnvFile,
@@ -415,7 +416,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
   p.log.message(
     pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`,
+      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(configPath)}`,
     ),
   );
 
