@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { config as loadDotenv, parse as parseDotenv } from "dotenv";
+import { parse as parseDotenv } from "dotenv";
 
 /**
  * Keys an Instance's `.env` sets even when the server inherited a different
@@ -30,7 +30,6 @@ export function loadInstanceEnvFile(
 ): void {
   const env = options.env ?? process.env;
   const log = options.log ?? console.warn;
-  loadDotenv({ path: filePath, override: false, quiet: true, processEnv: env as Record<string, string> });
 
   let fileEntries: Record<string, string>;
   try {
@@ -38,10 +37,15 @@ export function loadInstanceEnvFile(
   } catch {
     return;
   }
-  for (const key of INSTANCE_OWNED_ENV_KEYS) {
-    const value = fileEntries[key]?.trim();
-    if (!value || env[key] === value) continue;
+  const instanceOwned = new Set<string>(INSTANCE_OWNED_ENV_KEYS);
+  for (const [key, rawValue] of Object.entries(fileEntries)) {
+    if (!instanceOwned.has(key)) {
+      if (!Object.hasOwn(env, key)) env[key] = rawValue;
+      continue;
+    }
+    const value = rawValue.trim();
     const inherited = env[key];
+    if (!value || inherited === value) continue;
     env[key] = value;
     if (inherited !== undefined) {
       log(`[paperclip] Using this Instance's ${key}=${value} from ${filePath} instead of the inherited ${key}=${inherited}.`);

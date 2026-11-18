@@ -1,6 +1,5 @@
 import * as p from "@clack/prompts";
 import fs from "node:fs";
-import path from "node:path";
 import pc from "picocolors";
 import {
   backupInvalidConfig,
@@ -26,13 +25,12 @@ import { defaultSecretsConfig, promptSecrets } from "../prompts/secrets.js";
 import { defaultStorageConfig, promptStorage } from "../prompts/storage.js";
 import { promptServer } from "../prompts/server.js";
 import {
-  expandHomePrefix,
   resolveDefaultBackupDir,
   resolveDefaultEmbeddedPostgresDir,
   resolveDefaultLogsDir,
+  resolveHomeAwarePath,
   resolvePaperclipInstanceId,
 } from "../config/home.js";
-import { applyInstanceOption } from "../config/data-dir.js";
 import { printPaperclipCliBanner } from "../utils/banner.js";
 
 type Section = "llm" | "database" | "logging" | "server" | "storage" | "secrets";
@@ -93,14 +91,13 @@ function defaultConfig(): PaperclipConfig {
 type ConfigureOptions = {
   config?: string;
   section?: string;
-  instance?: string;
   claudeConfigDir?: string;
   yes?: boolean;
 };
 
 async function configureClaudeConfigDir(rawValue: string, envFilePath: string, yes: boolean): Promise<void> {
   const trimmed = rawValue.trim();
-  const next = trimmed ? path.resolve(expandHomePrefix(trimmed)) : null;
+  const next = trimmed ? resolveHomeAwarePath(trimmed) : null;
 
   if (next !== null) {
     const stat = fs.statSync(next, { throwIfNoEntry: false });
@@ -158,7 +155,6 @@ async function configureClaudeConfigDir(rawValue: string, envFilePath: string, y
 export async function configure(opts: ConfigureOptions): Promise<void> {
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclip configure ")));
-  applyInstanceOption(opts);
   const configPath = resolveConfigPath(opts.config);
 
   if (!configExists(opts.config)) {

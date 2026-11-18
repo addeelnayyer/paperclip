@@ -28,7 +28,7 @@ import { registerFeedbackCommands } from "./commands/client/feedback.js";
 import { registerSecretCommands } from "./commands/client/secrets.js";
 import { registerSkillsCommands } from "./commands/client/skills.js";
 import { registerTeamCommands } from "./commands/client/teams.js";
-import { applyDataDirOverride, applyInstanceOption, type DataDirOptionLike } from "./config/data-dir.js";
+import { applyDataDirOverride, type DataDirOptionLike } from "./config/data-dir.js";
 import { loadPaperclipEnvFile } from "./config/env.js";
 import { initTelemetryFromConfigFile, flushTelemetry } from "./telemetry.js";
 import { registerWorktreeCommands } from "./commands/worktree.js";
@@ -118,7 +118,6 @@ program.hook("preAction", async (_thisCommand, actionCommand) => {
     hasConfigOption: optionNames.has("config"),
     hasContextOption: optionNames.has("context"),
   });
-  if (optionNames.has("config")) applyInstanceOption(dataDirOptions);
   loadPaperclipEnvFile(options.config);
   if (actionCommand.name() === "test-drive") {
     assertTestDriveDatabaseIsolation(options.config);

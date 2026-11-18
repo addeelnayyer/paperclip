@@ -9,24 +9,17 @@ import {
 } from "@paperclipai/adapter-claude-local/server";
 import { loadInstanceEnvFile } from "../env-file-policy.js";
 
-const RESTORED_ENV_KEYS = ["HOME", "PATH", "CLAUDE_CONFIG_DIR", "CLAUDE_TEST_CAPTURE_PATH", "ANTHROPIC_API_KEY"] as const;
-let savedEnv: Partial<Record<(typeof RESTORED_ENV_KEYS)[number], string | undefined>>;
-
 let root: string;
 let envPath: string;
 
 beforeEach(() => {
-  savedEnv = Object.fromEntries(RESTORED_ENV_KEYS.map((key) => [key, process.env[key]]));
   root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-instance-claude-"));
   envPath = path.join(root, ".env");
 });
 
 afterEach(() => {
   resetClaudeCliCapabilitiesCacheForTests();
-  for (const key of RESTORED_ENV_KEYS) {
-    if (savedEnv[key] === undefined) delete process.env[key];
-    else process.env[key] = savedEnv[key];
-  }
+  vi.unstubAllEnvs();
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -45,10 +38,10 @@ console.log(JSON.stringify({ type: "assistant", session_id: "11111111-1111-4111-
 console.log(JSON.stringify({ type: "result", session_id: "11111111-1111-4111-8111-111111111111", result: "hello", usage: { input_tokens: 1, cache_read_input_tokens: 0, output_tokens: 1 } }));
 `;
   fs.writeFileSync(path.join(binDir, "claude"), script, { mode: 0o755 });
-  process.env.HOME = root;
-  process.env.PATH = `${binDir}${path.delimiter}${savedEnv.PATH ?? ""}`;
-  process.env.CLAUDE_TEST_CAPTURE_PATH = capturePath;
-  delete process.env.ANTHROPIC_API_KEY;
+  vi.stubEnv("HOME", root);
+  vi.stubEnv("PATH", `${binDir}${path.delimiter}${process.env.PATH ?? ""}`);
+  vi.stubEnv("CLAUDE_TEST_CAPTURE_PATH", capturePath);
+  vi.stubEnv("ANTHROPIC_API_KEY", undefined);
   return { capturePath };
 }
 
@@ -57,15 +50,15 @@ function capturedConfigDirs(capturePath: string): Array<string | null> {
 }
 
 /** Simulates server startup: the shell or launchd already exported a different login. */
-function startServerWithInstanceLogin(): { instanceLogin: string; inheritedLogin: string } {
+function startServerWithInstanceLogin(): { instanceLogin: string } {
   const instanceLogin = path.join(root, "logins", "work");
   const inheritedLogin = path.join(root, "logins", "personal");
   fs.mkdirSync(instanceLogin, { recursive: true });
   fs.mkdirSync(inheritedLogin, { recursive: true });
   fs.writeFileSync(envPath, `CLAUDE_CONFIG_DIR=${instanceLogin}\n`);
-  process.env.CLAUDE_CONFIG_DIR = inheritedLogin;
+  vi.stubEnv("CLAUDE_CONFIG_DIR", inheritedLogin);
   loadInstanceEnvFile(envPath, { log: () => {} });
-  return { instanceLogin, inheritedLogin };
+  return { instanceLogin };
 }
 
 async function runClaudeLocal(config: Record<string, unknown> = {}) {
@@ -156,7 +149,6 @@ describe("the env a claude_local run receives", () => {
       config: { engine: "cli", command: "claude", cwd: root },
     });
 
-    expect(capturedConfigDirs(capturePath)).toContain(instanceLogin);
     expect(new Set(capturedConfigDirs(capturePath))).toEqual(new Set([instanceLogin]));
   });
 

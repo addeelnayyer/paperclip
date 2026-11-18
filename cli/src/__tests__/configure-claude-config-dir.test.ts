@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as prompts from "@clack/prompts";
 import { parse as parseEnv } from "dotenv";
 import { configure } from "../commands/configure.js";
+import { applyDataDirOverride } from "../config/data-dir.js";
 
 vi.mock("@clack/prompts", () => ({
   intro: vi.fn(),
@@ -24,7 +25,6 @@ vi.mock("@clack/prompts", () => ({
 }));
 
 const ORIGINAL_EXIT_CODE = process.exitCode;
-const ORIGINAL_HOME = process.env.HOME;
 let originalStdinIsTTY: boolean | undefined;
 let originalStdoutIsTTY: boolean | undefined;
 let root: string;
@@ -57,8 +57,8 @@ beforeEach(() => {
   setTty(true);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
   root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-configure-claude-"));
-  process.env.HOME = path.join(root, "home");
-  fs.mkdirSync(process.env.HOME, { recursive: true });
+  vi.stubEnv("HOME", path.join(root, "home"));
+  fs.mkdirSync(process.env.HOME!, { recursive: true });
   configPath = path.join(root, "instance", "config.json");
   envPath = path.join(root, "instance", ".env");
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -70,8 +70,7 @@ afterEach(() => {
   Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: originalStdinIsTTY });
   Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: originalStdoutIsTTY });
   process.exitCode = ORIGINAL_EXIT_CODE;
-  if (ORIGINAL_HOME === undefined) delete process.env.HOME;
-  else process.env.HOME = ORIGINAL_HOME;
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   fs.rmSync(root, { recursive: true, force: true });
 });
@@ -157,29 +156,20 @@ describe("configure --claude-config-dir", () => {
   });
 
   it("writes to the named Instance's .env with --instance", async () => {
-    const previousPaperclipHome = process.env.PAPERCLIP_HOME;
-    const previousPaperclipConfig = process.env.PAPERCLIP_CONFIG;
-    const previousInstanceId = process.env.PAPERCLIP_INSTANCE_ID;
-    process.env.PAPERCLIP_HOME = path.join(root, "paperclip-home");
-    delete process.env.PAPERCLIP_CONFIG;
-    delete process.env.PAPERCLIP_INSTANCE_ID;
+    vi.stubEnv("PAPERCLIP_HOME", path.join(root, "paperclip-home"));
+    vi.stubEnv("PAPERCLIP_CONFIG", undefined);
+    vi.stubEnv("PAPERCLIP_INSTANCE_ID", undefined);
     // Keep config discovery away from any real .paperclip/config.json above the test's cwd.
     vi.spyOn(process, "cwd").mockReturnValue(root);
-    const instanceDir = path.join(process.env.PAPERCLIP_HOME, "instances", "work");
+    const instanceDir = path.join(process.env.PAPERCLIP_HOME!, "instances", "work");
     fs.mkdirSync(instanceDir, { recursive: true });
     fs.writeFileSync(path.join(instanceDir, "config.json"), "{}\n");
 
-    try {
-      await configure({ instance: "work", claudeConfigDir: root });
+    // The CLI's preAction hook applies --instance before the command runs.
+    applyDataDirOverride({ instance: "work" }, { hasConfigOption: true });
+    await configure({ claudeConfigDir: root });
 
-      expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
-      expect(parseEnv(fs.readFileSync(path.join(instanceDir, ".env"), "utf8")).CLAUDE_CONFIG_DIR).toBe(root);
-    } finally {
-      if (previousPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
-      else process.env.PAPERCLIP_HOME = previousPaperclipHome;
-      if (previousPaperclipConfig !== undefined) process.env.PAPERCLIP_CONFIG = previousPaperclipConfig;
-      if (previousInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
-      else process.env.PAPERCLIP_INSTANCE_ID = previousInstanceId;
-    }
+    expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
+    expect(parseEnv(fs.readFileSync(path.join(instanceDir, ".env"), "utf8")).CLAUDE_CONFIG_DIR).toBe(root);
   });
 });

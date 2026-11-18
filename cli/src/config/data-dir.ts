@@ -22,6 +22,12 @@ export function applyDataDirOverride(
   options: DataDirOptionLike,
   support: DataDirCommandSupport = {},
 ): string | null {
+  // An explicit --instance scopes config and Instance `.env` resolution even
+  // without --data-dir; an explicit --config or PAPERCLIP_CONFIG still wins.
+  if (support.hasConfigOption && options.instance?.trim()) {
+    process.env.PAPERCLIP_INSTANCE_ID = resolvePaperclipInstanceId(options.instance);
+  }
+
   const rawDataDir = options.dataDir?.trim();
   if (!rawDataDir) return null;
 
@@ -47,12 +53,3 @@ export function applyDataDirOverride(
   return resolvedDataDir;
 }
 
-/**
- * Points instance-scoped resolution (config path, Instance `.env`) at an
- * explicit `--instance`. An explicit `--config` or `PAPERCLIP_CONFIG` still wins.
- */
-export function applyInstanceOption(options: Pick<DataDirOptionLike, "instance">): void {
-  if (options.instance?.trim()) {
-    process.env.PAPERCLIP_INSTANCE_ID = resolvePaperclipInstanceId(options.instance);
-  }
-}

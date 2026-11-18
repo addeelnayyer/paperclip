@@ -154,10 +154,15 @@ export function readInstanceClaudeConfigDir(filePath = resolveEnvFilePath()): st
 /** Sets the Instance's Host Claude Login, or removes it when `value` is null. */
 export function writeInstanceClaudeConfigDir(value: string | null, filePath = resolveEnvFilePath()): void {
   const previousContents = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
-  const baseContents = previousContents ?? emptyEnvFileContents();
-  const nextContents = value === null
-    ? removeEnvFileKeys(baseContents, [CLAUDE_CONFIG_DIR_ENV_KEY])
-    : updateEnvFileContents(baseContents, { [CLAUDE_CONFIG_DIR_ENV_KEY]: value }, { valueEncoding: "minimal" });
-  if (previousContents === null && value === null) return;
+  if (value === null) {
+    if (previousContents === null) return;
+    writeEnvFileAtomicallyIfChanged(filePath, previousContents, removeEnvFileKeys(previousContents, [CLAUDE_CONFIG_DIR_ENV_KEY]));
+    return;
+  }
+  const nextContents = updateEnvFileContents(
+    previousContents ?? emptyEnvFileContents(),
+    { [CLAUDE_CONFIG_DIR_ENV_KEY]: value },
+    { valueEncoding: "minimal" },
+  );
   writeEnvFileAtomicallyIfChanged(filePath, previousContents, nextContents);
 }
