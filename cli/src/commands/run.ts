@@ -7,7 +7,7 @@ import pc from "picocolors";
 import { bootstrapCeoInvite } from "./auth-bootstrap-ceo.js";
 import { onboard } from "./onboard.js";
 import { doctor } from "./doctor.js";
-import { loadPaperclipEnvFile } from "../config/env.js";
+import { describeHostClaudeLogin, loadPaperclipEnvFile, resolvePaperclipEnvFile } from "../config/env.js";
 import { configExists, resolveConfigPath } from "../config/store.js";
 import type { PaperclipConfig } from "../config/schema.js";
 import { readConfig } from "../config/store.js";
@@ -68,6 +68,7 @@ export async function runCommand(opts: RunOptions): Promise<void> {
   p.log.message(pc.dim(`Home: ${paths.homeDir}`));
   p.log.message(pc.dim(`Instance: ${paths.instanceId}`));
   p.log.message(pc.dim(`Config: ${configPath}`));
+  p.log.message(pc.dim(`Claude login: ${describeHostClaudeLogin(resolvePaperclipEnvFile(configPath))}`));
 
   if (!configExists(configPath)) {
     if ((!process.stdin.isTTY || !process.stdout.isTTY) && !opts.yes) {

@@ -3,6 +3,7 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import { readConfig, resolveConfigPath } from "../config/store.js";
+import { describeHostClaudeLogin, resolvePaperclipEnvFile } from "../config/env.js";
 import { resolvePaperclipInstanceId, resolvePaperclipInstanceRoot } from "../config/home.js";
 import { detectServiceManager, type ServiceManager, type ServiceStatus } from "../services/service-manager.js";
 import { ensureServiceShim } from "../onboard-service.js";
@@ -219,7 +220,10 @@ export function registerServiceCommands(program: Command): void {
   common(service.command("status").description("Show supervisor and health status")).action(async (opts) => {
     const manager = await resolveManager(opts); if (!manager) return;
     const instanceId = resolvePaperclipInstanceId(opts.instance);
-    output({ ...await manager.status(), health: await probeHealth(instanceId) }, opts.json);
+    const health = await probeHealth(instanceId);
+    // The service doesn't inherit this shell's CLAUDE_CONFIG_DIR, so report the Instance's .env alone.
+    const hostClaudeLogin = describeHostClaudeLogin(resolvePaperclipEnvFile(), {});
+    output({ ...await manager.status(), health, hostClaudeLogin }, opts.json);
   });
 
   common(service.command("logs").description("Show service logs"))
