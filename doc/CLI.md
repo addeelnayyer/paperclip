@@ -328,6 +328,62 @@ environments receive foreground `paperclipai run` guidance.
 `paperclipai doctor` includes managed-install and service-health diagnostics in
 addition to configuration, storage, database, logging, and port checks.
 
+### Several Instances, one per Claude subscription
+
+To use more than one Claude subscription on one machine, for example work and
+personal, run one Instance per subscription. Each Instance has its own id,
+ports, database and Host Claude Login: the Claude config dir that its
+`claude_local` agents with no AI Connection run under. See
+[GLOSSARY.md](../GLOSSARY.md) for **Instance** and **Host Claude Login**, and
+[ADR 0001](adr/0001-one-instance-per-claude-subscription.md) for why this was
+chosen over several AI Connections in one Instance.
+
+By convention, the Nth Instance uses server port 990N and embedded Postgres
+port 5590N. The `default` Instance keeps 3100/54329 and runs alongside them.
+
+| Instance | Server | Postgres | Config dir |
+| --- | --- | --- | --- |
+| `work` | 9901 | 55901 | `~/.claude-work` |
+| `personal` | 9902 | 55902 | `~/.claude-personal` |
+
+1. Sign in to each config dir with Claude Code:
+
+   ```sh
+   CLAUDE_CONFIG_DIR=~/.claude-work claude
+   CLAUDE_CONFIG_DIR=~/.claude-personal claude
+   ```
+
+   Run `/login` in each session if it is not already signed in. Paperclip does
+   not check the sign-in, but the directory must exist before step 2.
+
+2. Onboard each Instance with its ports and Host Claude Login:
+
+   ```sh
+   paperclipai onboard --instance work --server-port 9901 --db-port 55901 --claude-config-dir ~/.claude-work --no-install-service
+   paperclipai onboard --instance personal --server-port 9902 --db-port 55902 --claude-config-dir ~/.claude-personal --no-install-service
+   ```
+
+   `--server-port` and `--db-port` are saved in a new Instance's `config.json`.
+   An existing config keeps its ports. `--claude-config-dir` is saved as an
+   absolute path in the Instance's `.env`.
+
+3. Install each Instance as a background service:
+
+   ```sh
+   paperclipai service install --instance work
+   paperclipai service install --instance personal
+   paperclipai service status --instance work
+   paperclipai service status --instance personal
+   ```
+
+   The server reads the Host Claude Login from the Instance's `.env`, so the
+   service and `paperclipai run --instance <id>` use the same one.
+
+The Instance's Host Claude Login beats a `CLAUDE_CONFIG_DIR` inherited from the
+shell or service environment. Switching an Instance to a different login
+applies at the next restart, and Claude sessions saved under the old login
+start fresh. See [Host Claude Login](#host-claude-login) for the full rules.
+
 ## Host Claude Login
 
 An Instance can have its own Host Claude Login: the Claude config dir that its
@@ -1247,6 +1303,8 @@ Override base home or instance with env vars:
 ```sh
 PAPERCLIP_HOME=/custom/home PAPERCLIP_INSTANCE_ID=dev pnpm paperclipai run
 ```
+
+See [Several Instances, one per Claude subscription](#several-instances-one-per-claude-subscription).
 
 ## Storage Configuration
 
