@@ -3,57 +3,23 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as prompts from "@clack/prompts";
-import { parse as parseEnv } from "dotenv";
 import { configure } from "../commands/configure.js";
 import { applyDataDirOverride } from "../config/data-dir.js";
+import { loggedText, readEnvEntries, restoreTty, setTty } from "./helpers/host-claude-login.js";
 
-vi.mock("@clack/prompts", () => ({
-  intro: vi.fn(),
-  outro: vi.fn(),
-  cancel: vi.fn(),
-  confirm: vi.fn(),
-  select: vi.fn(),
-  isCancel: vi.fn(() => false),
-  log: {
-    error: vi.fn(),
-    info: vi.fn(),
-    message: vi.fn(),
-    step: vi.fn(),
-    success: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
+vi.mock("@clack/prompts", async () => (await import("./helpers/host-claude-login.js")).clackPromptsMock());
 
 const ORIGINAL_EXIT_CODE = process.exitCode;
-let originalStdinIsTTY: boolean | undefined;
-let originalStdoutIsTTY: boolean | undefined;
 let root: string;
 let configPath: string;
 let envPath: string;
 
-function setTty(value: boolean) {
-  Object.defineProperty(process.stdin, "isTTY", { configurable: true, value });
-  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value });
-}
-
 function envEntries(): Record<string, string> {
-  return fs.existsSync(envPath) ? parseEnv(fs.readFileSync(envPath, "utf8")) : {};
-}
-
-function loggedText(): string {
-  return [
-    ...vi.mocked(prompts.log.error).mock.calls,
-    ...vi.mocked(prompts.log.info).mock.calls,
-    ...vi.mocked(prompts.log.message).mock.calls,
-    ...vi.mocked(prompts.log.success).mock.calls,
-    ...vi.mocked(prompts.log.warn).mock.calls,
-  ].map((call) => String(call[0])).join("\n");
+  return readEnvEntries(envPath);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  originalStdinIsTTY = process.stdin.isTTY;
-  originalStdoutIsTTY = process.stdout.isTTY;
   setTty(true);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
   root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-configure-claude-"));
@@ -67,8 +33,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: originalStdinIsTTY });
-  Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: originalStdoutIsTTY });
+  restoreTty();
   process.exitCode = ORIGINAL_EXIT_CODE;
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -87,8 +52,8 @@ describe("configure --claude-config-dir", () => {
       PAPERCLIP_AGENT_JWT_SECRET: "keep-me",
       CLAUDE_CONFIG_DIR: loginDir,
     });
-    expect(loggedText()).toContain("next restart");
-    expect(loggedText()).toContain("start fresh");
+    expect(loggedText(prompts.log)).toContain("next restart");
+    expect(loggedText(prompts.log)).toContain("start fresh");
   });
 
   it("refuses a path that does not exist and writes nothing", async () => {
@@ -98,7 +63,7 @@ describe("configure --claude-config-dir", () => {
 
     expect(process.exitCode).toBe(1);
     expect(fs.readFileSync(envPath, "utf8")).toBe(before);
-    expect(loggedText()).toContain("does not exist");
+    expect(loggedText(prompts.log)).toContain("does not exist");
   });
 
   it("removes the entry when given an empty path", async () => {
@@ -108,7 +73,7 @@ describe("configure --claude-config-dir", () => {
 
     expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
     expect(envEntries()).toEqual({ PAPERCLIP_AGENT_JWT_SECRET: "keep-me" });
-    expect(loggedText()).toContain("next restart");
+    expect(loggedText(prompts.log)).toContain("next restart");
   });
 
   it("asks before changing a different existing value and keeps it when declined", async () => {
@@ -170,6 +135,6 @@ describe("configure --claude-config-dir", () => {
     await configure({ claudeConfigDir: root });
 
     expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
-    expect(parseEnv(fs.readFileSync(path.join(instanceDir, ".env"), "utf8")).CLAUDE_CONFIG_DIR).toBe(root);
+    expect(readEnvEntries(path.join(instanceDir, ".env")).CLAUDE_CONFIG_DIR).toBe(root);
   });
 });

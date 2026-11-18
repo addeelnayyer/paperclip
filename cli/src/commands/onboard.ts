@@ -33,6 +33,7 @@ import {
   ensureAgentJwtSecret,
   ensureToolActionSigningSecret,
   resolveAgentJwtEnvFile,
+  resolvePaperclipEnvFile,
 } from "../config/env.js";
 import { applyDataDirOverride } from "../config/data-dir.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
@@ -42,6 +43,7 @@ import { promptLogging } from "../prompts/logging.js";
 import { defaultSecretsConfig } from "../prompts/secrets.js";
 import { defaultStorageConfig, promptStorage } from "../prompts/storage.js";
 import { promptServer } from "../prompts/server.js";
+import { applyHostClaudeLoginOption } from "../prompts/host-claude-login.js";
 import { buildPresetServerConfig } from "../config/server-bind.js";
 import {
   describeLocalInstancePaths,
@@ -77,6 +79,7 @@ type OnboardOptions = {
   instance?: string;
   serverPort?: string;
   dbPort?: string;
+  claudeConfigDir?: string;
 };
 
 type OnboardDefaults = Pick<PaperclipConfig, "database" | "logging" | "server" | "auth" | "storage" | "secrets">;
@@ -416,6 +419,13 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath} | claude login: ${describeHostClaudeLogin(configPath)}`,
     ),
   );
+
+  if (
+    opts.claudeConfigDir !== undefined &&
+    !(await applyHostClaudeLoginOption(opts.claudeConfigDir, resolvePaperclipEnvFile(configPath), opts.yes === true))
+  ) {
+    return;
+  }
 
   let existingConfig: PaperclipConfig | null = null;
   let invalidBackupPath: string | undefined;
