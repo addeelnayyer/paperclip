@@ -337,7 +337,17 @@ environment probe.
 ```sh
 npx paperclipai configure --instance <id> --claude-config-dir <path>
 npx paperclipai configure --instance <id> --claude-config-dir ""
+npx paperclipai onboard --instance <id> --claude-config-dir <path>
+npx paperclipai service install --instance <id> --claude-config-dir <path>
 ```
+
+`onboard` and `service install` validate, confirm and save the value exactly as
+`configure` does, before they write any config or install the service. If the
+value is refused or the change is declined, they stop. `service install` does
+not put `CLAUDE_CONFIG_DIR` in the launchd plist or systemd unit: the service
+runs `paperclipai run --instance <id>`, which reads it from the Instance's
+`.env`, so a service-managed Instance and one started by hand use the same
+Host Claude Login.
 
 - The CLI expands `~` and saves the absolute path as `CLAUDE_CONFIG_DIR` in the
   Instance's `.env`. A path that does not exist is refused and nothing is
