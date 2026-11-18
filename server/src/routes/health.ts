@@ -137,6 +137,10 @@ export function healthRoutes(
   },
 ) {
   const router = Router();
+  // The Instance id tells the board which of several local Instances it is
+  // talking to. It names the instance, so like serverInfo it rides the
+  // full-details responses only.
+  const instanceId = resolvePaperclipInstanceId();
 
   router.post("/dev-server/restart", async (req, res) => {
     const actorType = "actor" in req ? req.actor?.type : null;
@@ -258,10 +262,6 @@ export function healthRoutes(
     // one, unlike the fuller `serverInfo` block. Deploy tooling (and anyone)
     // can read which commit this server is running without authenticating.
     const commit = serverInfo.git.available ? serverInfo.git.fullSha : null;
-    // The Instance id tells the board which of several local Instances it is
-    // talking to. It names the instance, so like serverInfo it rides the
-    // full-details responses only.
-    const instanceId = resolvePaperclipInstanceId();
     const exposeDevServerDetails =
       exposeFullDetails || hasDevServerStatusToken(req.get("x-paperclip-dev-server-status-token"));
     // Workspace readiness names the instance and execution workspace that

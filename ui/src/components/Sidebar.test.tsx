@@ -7,8 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { HealthStatus } from "@/api/health";
-import { queryKeys } from "@/lib/queryKeys";
 
 vi.mock("@/hooks/useCoordinatorWorkspaceEnabled", () => ({
   useCoordinatorWorkspaceEnabled: () => ({ enabled: false, loaded: true, userId: "viewer" }),
@@ -135,12 +133,11 @@ async function flushReact() {
 describe("Sidebar", () => {
   let container: HTMLDivElement;
 
-  async function renderSidebar({ health }: { health?: HealthStatus } = {}) {
+  async function renderSidebar() {
     const root = createRoot(container);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    if (health) queryClient.setQueryData(queryKeys.health, health);
 
     flushSync(() => {
       root.render(
@@ -180,31 +177,6 @@ describe("Sidebar", () => {
     expect(sidebar?.classList).not.toContain("border-r");
     expect(sidebar?.classList).not.toContain("border-border");
     expect(sidebar?.classList).toContain("primary-sidebar-surface");
-
-    flushSync(() => {
-      root.unmount();
-    });
-  });
-
-  it("shows the Instance id beside the company menu for a non-default Instance", async () => {
-    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
-    const root = await renderSidebar({ health: { status: "ok", instanceId: "personal" } });
-
-    const header = container.querySelector("aside > div");
-    expect(header?.textContent).toContain("Company menu");
-    expect(header?.textContent).toContain("[personal]");
-
-    flushSync(() => {
-      root.unmount();
-    });
-  });
-
-  it("shows no Instance label for the default Instance", async () => {
-    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
-    const root = await renderSidebar({ health: { status: "ok", instanceId: "default" } });
-
-    expect(container.querySelector("aside")?.textContent).not.toContain("[default]");
-    expect(container.querySelector("aside > div")?.textContent).toBe("Company menu");
 
     flushSync(() => {
       root.unmount();

@@ -42,7 +42,6 @@ import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSh
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { SidebarCompanyMenu } from "./SidebarCompanyMenu.production";
-import { SidebarInstanceLabel } from "./SidebarInstanceLabel";
 
 export function Sidebar() {
   const { openNewIssue } = useDialogActions();
@@ -124,7 +123,6 @@ export function Sidebar() {
           Search is the first nav item below instead. */}
       <div className="flex items-center gap-1 px-3 h-12 shrink-0">
         <SidebarCompanyMenu />
-        <SidebarInstanceLabel />
       </div>
 
       <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 pointer-coarse:gap-3 px-3 py-2">

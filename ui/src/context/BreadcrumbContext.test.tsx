@@ -127,11 +127,8 @@ describe("BreadcrumbContext", () => {
     expect(buildDocumentTitle([], null, "personal")).toBe("[personal] Paperclip");
   });
 
-  it("adds no Instance label for the default Instance", () => {
-    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", "default")).toBe(
-      "Inbox • Anachronist Wiki • Paperclip",
-    );
-    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", null)).toBe(
+  it.each(["default", null, undefined, "  "])("adds no Instance label for Instance id %j", (instanceId) => {
+    expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki", instanceId)).toBe(
       "Inbox • Anachronist Wiki • Paperclip",
     );
   });

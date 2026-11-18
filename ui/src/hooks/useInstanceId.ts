@@ -1,18 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { healthApi } from "@/api/health";
-import { queryKeys } from "@/lib/queryKeys";
+import type { HealthStatus } from "@/api/health";
+import { useHealthCache } from "./useHealthCache";
 
-/**
- * Reads the id of the Paperclip Instance this board talks to from the
- * app-wide health query cache. CloudAccessGate owns the fetch; this observer
- * never issues its own request.
- */
+const selectInstanceId = (health: HealthStatus) => health.instanceId ?? null;
+
+/** Id of the Paperclip Instance this board talks to, from the health cache. */
 export function useInstanceId(): string | null {
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    enabled: false,
-  });
-
-  return healthQuery.data?.instanceId ?? null;
+  return useHealthCache(selectInstanceId) ?? null;
 }

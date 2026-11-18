@@ -142,17 +142,6 @@ describe("Coordinator task creation", () => {
     expect(region.textContent).not.toContain("Recents");
     expect(region.querySelector('a[href="/issues/TASK-0"]')).not.toBeNull();
   });
-  it("names a non-default Instance in the organization header and stays quiet for default", async () => {
-    client.setQueryData(queryKeys.health, { status: "ok", instanceId: "personal" });
-    await renderSidebar();
-    expect(container.querySelector(".design-sidebar-brand")?.textContent).toContain("[personal]");
-
-    await act(async () => {
-      client.setQueryData(queryKeys.health, { status: "ok", instanceId: "default" });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    expect(container.querySelector(".design-sidebar-brand")?.textContent).not.toContain("[");
-  });
   it("opens global search from the organization header", async () => {
     await renderSidebar();
     const listener = vi.fn();

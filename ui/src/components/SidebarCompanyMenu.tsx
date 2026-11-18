@@ -43,6 +43,7 @@ import { ANALYTICS_MASK_CLASS } from "@/lib/analytics/privacy";
 import { useSidebar } from "../context/SidebarContext";
 import { CompanyPatternIcon } from "./CompanyPatternIcon";
 import { TruncatedText } from "./TruncatedText";
+import { SidebarInstanceLabel } from "./SidebarInstanceLabel";
 import { FlyoutHeader, FlyoutOptions } from "./ui/flyout";
 
 import { PluginOrganizationSwitcher } from "./PluginOrganizationSwitcher";
@@ -292,6 +293,7 @@ function BuiltinCompanyMenu({ open: controlledOpen, onOpenChange, showChevron = 
               {currentName ?? `Select ${switcherNoun}`}
             </TruncatedText>
           </span>
+          <SidebarInstanceLabel />
           {showChevron && <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />}
         </Button>
       </DropdownMenuTrigger>

@@ -810,6 +810,7 @@ export {
   type PluginApiRouteCheckoutPolicy,
   type PluginEventType,
   type PluginBridgeErrorCode,
+  DEFAULT_PAPERCLIP_INSTANCE_ID,
 } from "./constants.js";
 
 export {
